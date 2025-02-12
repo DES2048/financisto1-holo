@@ -296,6 +296,9 @@
                     android:title="@string/set_focus_on_amount_field" />
             </PreferenceCategory>
         </PreferenceScreen>
+        <EditTextPreference
+            android:key="proverkacheka_token"
+            android:title="Proverkacheka Token" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/pref_tpl">

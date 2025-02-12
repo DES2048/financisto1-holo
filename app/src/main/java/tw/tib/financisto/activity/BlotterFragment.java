@@ -11,6 +11,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateUtils;
@@ -39,6 +40,9 @@ import androidx.core.view.MenuProvider;
 import androidx.lifecycle.Lifecycle;
 import androidx.loader.content.Loader;
 
+import org.yae.qr.QRUtils;
+
+import java.lang.ref.WeakReference;
 import java.util.Calendar;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -122,6 +126,25 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     private NodeInflater inflater;
     private long selectedId = -1;
 
+    private static class QrCodeCompleteHandler extends Handler {
+        private final WeakReference<BlotterFragment> blotterFragment;
+        public QrCodeCompleteHandler(BlotterFragment blotterFragment) {
+            this.blotterFragment = new WeakReference<>(blotterFragment);
+        }
+
+        @Override
+        public void handleMessage(Message message) {
+            super.handleMessage(message);
+            var frag = blotterFragment.get();
+            if(frag != null) {
+                frag.recreateCursor();
+                AccountWidget.updateWidgets(frag.getContext());
+            }
+        }
+    }
+
+    // when qrcode scan completes
+    private QrCodeCompleteHandler qrCodeScanCompleteHandler = new QrCodeCompleteHandler(this);
     public BlotterFragment(int layoutId) {
         super(layoutId);
     }
@@ -504,13 +527,15 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     };
 
     private void prepareAddButtonActionGrid() {
+        // FIXME: работает только если кнопки объеденены
         addButtonActionGrid = new QuickActionGrid(getContext());
         addButtonActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.actionbar_add_big, R.string.transaction));
         addButtonActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.ic_action_transfer, R.string.transfer));
+        addButtonActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.actionbar_flash, R.string.scan_qr));
         if (addTemplateToAddButton()) {
             addButtonActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.actionbar_tiles_large, R.string.template));
         } else {
-            addButtonActionGrid.setNumColumns(2);
+            addButtonActionGrid.setNumColumns(3);
         }
         addButtonActionGrid.setOnQuickActionClickListener(addButtonActionListener);
     }
@@ -528,6 +553,11 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                 addItem(NEW_TRANSFER_REQUEST, TransferActivity.class);
                 break;
             case 2:
+                QRUtils.performScan(getContext(), () -> {
+                    qrCodeScanCompleteHandler.sendEmptyMessage(0);
+                });
+                break;
+            case 3:
                 createFromTemplate();
                 break;
         }

@@ -124,6 +124,11 @@ public class MyPreferences {
 		}
 
 	}
+	// my qr
+	public static String getProverkachekaToken(Context context) {
+		SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+		return sp.getString("proverkacheka_token", "");
+	}
 
 	public static boolean isSecureWindow(Context context) {
 		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
