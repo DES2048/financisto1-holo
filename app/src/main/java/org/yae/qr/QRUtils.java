@@ -1,8 +1,12 @@
 package org.yae.qr;
 
 import android.content.Context;
+import android.widget.Toast;
 
+import com.google.android.gms.common.moduleinstall.ModuleInstall;
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest;
 import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 
@@ -17,9 +21,21 @@ import tw.tib.financisto.model.Transaction;
 import tw.tib.financisto.model.TransactionStatus;
 import tw.tib.financisto.utils.MyPreferences;
 
+interface Callback {
+    void onCallback();
+}
+
+interface OnResultCallback<T> {
+    void onResult(T result);
+}
+
 public class QRUtils {
     public interface SuccessScanCallback {
         void onSuccess();
+    }
+
+    interface OnFailureCallback {
+        void onFailure(Exception e);
     }
     private static final SimpleDateFormat formatter=
             new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
@@ -33,10 +49,41 @@ public class QRUtils {
         return true;
     }
 
+    public static void checkBarcodeModuleInstalled(Context context, GmsBarcodeScanner scanner, OnResultCallback<Boolean> onResult) {
+        var moduleInstall = ModuleInstall.getClient(context);
+        moduleInstall.areModulesAvailable(scanner).addOnSuccessListener(response -> {
+            onResult.onResult(response.areModulesAvailable());
+        }).addOnFailureListener(e -> {
+            throw new RuntimeException(e);
+        });
+    }
+
     public static void performScan(Context context, SuccessScanCallback cb) {
 
         var scanner = GmsBarcodeScanning.getClient(context,scannerOpts);
-        // TODO: to separate method
+
+        checkBarcodeModuleInstalled(context, scanner, result -> {
+            if (result) {
+                innerScan(context, scanner, cb);
+            } else {
+                // install module
+                var moduleRequest = ModuleInstallRequest.newBuilder().addApi(scanner).build();
+                Toast.makeText(context, "Installing modules...", Toast.LENGTH_LONG).show();
+
+                ModuleInstall.getClient(context).installModules(moduleRequest).addOnSuccessListener(response -> {
+                    if(response.areModulesAlreadyInstalled()) {
+                        Toast.makeText(context, "Modules installed", Toast.LENGTH_SHORT).show();
+
+                        innerScan(context, scanner, cb);
+                    }
+                });
+            }
+        });
+        return;
+
+    }
+
+    private static void innerScan(Context context, GmsBarcodeScanner scanner, SuccessScanCallback cb) {
         scanner.startScan().addOnSuccessListener(barcode -> {
             var qrraw = barcode.getRawValue();
             if (qrraw != null) {
@@ -63,6 +110,9 @@ public class QRUtils {
                         }
                     }, null);
             }
+        }).addOnFailureListener(e -> {
+            throw new RuntimeException(e);
+            //Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show();
         });
     }
     public static Transaction createTransactionFromJson(JSONObject obj) {
