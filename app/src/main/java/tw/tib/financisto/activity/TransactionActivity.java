@@ -21,11 +21,9 @@ import android.widget.Toast;
 import greendroid.widget.QuickActionGrid;
 import greendroid.widget.QuickActionWidget;
 import tw.tib.financisto.R;
-import tw.tib.financisto.model.*;
 import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.Category;
 import tw.tib.financisto.model.Currency;
-import tw.tib.financisto.utils.*;
 import tw.tib.financisto.model.MyEntity;
 import tw.tib.financisto.model.Payee;
 import tw.tib.financisto.model.Transaction;
@@ -33,7 +31,6 @@ import tw.tib.financisto.utils.CurrencyCache;
 import tw.tib.financisto.utils.MyPreferences;
 import tw.tib.financisto.utils.SplitAdjuster;
 import tw.tib.financisto.utils.TransactionUtils;
-import tw.tib.financisto.utils.Utils;
 
 import java.io.*;
 import java.util.*;
@@ -53,10 +50,12 @@ public class TransactionActivity extends AbstractTransactionActivity {
     private long idSequence = 0;
     private final IdentityHashMap<View, Transaction> viewToSplitMap = new IdentityHashMap<>();
 
+    private TextView accountBalanceText;
+    private TextView accountLimitText;
+
     private TextView differenceText;
     private boolean isUpdateBalanceMode = false;
     private long currentBalance;
-    private Utils u;
 
     private LinearLayout splitsLayout;
     private TextView unsplitAmountText;
@@ -74,7 +73,6 @@ public class TransactionActivity extends AbstractTransactionActivity {
 
     @Override
     protected void internalOnCreate() {
-        u = new Utils(this);
         Intent intent = getIntent();
         if (intent != null) {
             if (intent.hasExtra(CURRENT_BALANCE_EXTRA)) {
@@ -173,7 +171,17 @@ public class TransactionActivity extends AbstractTransactionActivity {
     @Override
     protected void createListNodes(LinearLayout layout) {
         //account
-        accountText = x.addListNode(layout, R.id.account, R.string.account, R.string.select_account);
+        if (isShowAccountBalanceOnSelector) {
+            accountText = x.addListNodeAccount(layout, R.id.account, R.string.account, R.string.select_account);
+            View v = ((View) accountText.getTag());
+            accountBalanceText = v.findViewById(R.id.balance);
+            accountBalanceText.setVisibility(View.INVISIBLE);
+            accountLimitText = v.findViewById(R.id.limit);
+            accountLimitText.setVisibility(View.GONE);
+        }
+        else {
+            accountText = x.addListNode(layout, R.id.account, R.string.account, R.string.select_account);
+        }
         //payee
         isShowPayee = MyPreferences.isShowPayee(this);
         if (isShowPayee) {
@@ -364,7 +372,8 @@ public class TransactionActivity extends AbstractTransactionActivity {
         categorySelector.setSelectedAccount(a);
 
         if (a != null) {
-            accountText.setText(a.title);
+            u.setAccountTitleBalance(a, accountText, accountBalanceText, accountLimitText);
+
             selectedAccount = a;
 
             if (selectLast && !isShowPayee && isRememberLastCategory) {
@@ -418,7 +427,7 @@ public class TransactionActivity extends AbstractTransactionActivity {
         super.onSelectedPos(id, selectedPos);
         switch (id) {
             case R.id.payee:
-                if (isRememberLastCategory) {
+                if (isRememberLastCategory && !categorySelector.isSplitCategorySelected()) {
                     selectLastCategoryForPayee(payeeSelector.getSelectedEntityId());
                 }
                 break;
@@ -464,7 +473,7 @@ public class TransactionActivity extends AbstractTransactionActivity {
                     return;
                 }
                 else {
-                    if (prevCurrencyFromId == selectedAccount.currency.id) {
+                    if (prevCurrencyFromId == selectedAccount.currency.id || prevCurrencyFromId == 0) {
                         rateView.clearFromAmount();
                         rateView.setToAmount(fromAmount);
                     }

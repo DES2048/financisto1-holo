@@ -30,6 +30,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.constraintlayout.widget.ConstraintLayout;
+
 import org.androidannotations.annotations.AfterViews;
 import org.androidannotations.annotations.Click;
 import org.androidannotations.annotations.EViewGroup;
@@ -227,6 +229,11 @@ public class AmountInput extends LinearLayout implements AmountListener {
             secondary.setVisibility(GONE);
             delimiter.setVisibility(GONE);
         }
+        else {
+            var l = (ConstraintLayout.LayoutParams) secondary.getLayoutParams();
+            l.width = (int) (secondary.getPaint().measureText("00") + secondary.getPaddingStart() + secondary.getPaddingEnd());
+            secondary.setLayoutParams(l);
+        }
     }
 
     @Click(R.id.assign)
@@ -349,16 +356,7 @@ public class AmountInput extends LinearLayout implements AmountListener {
     public void setAmount(long amount) {
         long absAmount = Math.abs(amount);
 
-        if (MyPreferences.isRoundUpAmount(getContext()) && currency != null) {
-            BigDecimal bd = new BigDecimal(absAmount).setScale(2, RoundingMode.UNNECESSARY);
-            BigDecimal hundred = new BigDecimal(100);
-
-            bd = bd.divide(hundred, RoundingMode.UNNECESSARY);
-            bd = bd.setScale(currency.decimals, RoundingMode.HALF_UP);
-            bd = bd.multiply(hundred);
-
-            absAmount = bd.longValue();
-        }
+        absAmount = Utils.roundAmount(getContext(), currency, absAmount);
 
         long x = absAmount / 100;
         primary.setText(String.valueOf(x));

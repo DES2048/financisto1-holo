@@ -12,7 +12,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:tools="http://schemas.android.com/tools"
 	package="tw.tib.financisto"
-	android:versionName="2025-02-01" android:versionCode="175"
+	android:versionName="2025-07-31" android:versionCode="198"
     android:installLocation="internalOnly">
 
     <supports-screens
@@ -97,6 +97,12 @@
 			</intent-filter>
 		</receiver>		
 
+		<service android:name=".service.IntentService" android:exported="true">
+			<intent-filter>
+				<action android:name=".NEW_TRANSACTION" />
+			</intent-filter>
+		</service>
+
 		<service android:name=".service.FinancistoService" android:exported="true"
 			android:permission="android.permission.BIND_JOB_SERVICE">
 	    <intent-filter>
@@ -130,6 +136,9 @@
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
+
+			<meta-data android:name="android.app.shortcuts"
+				android:resource="@xml/shortcuts" />
 		</activity>
 
 		<activity android:icon="@drawable/icon_transaction" android:exported="true"
@@ -255,8 +264,9 @@
 		<activity android:name=".activity.BudgetActivity" android:label="@string/budgets"
 			android:configChanges="screenSize|smallestScreenSize|orientation|screenLayout|keyboardHidden"/>		
 		
-		<activity android:name=".activity.PreferencesActivity" android:label="@string/preferences"
+		<activity android:name=".activity.PreferencesActivity2" android:label="@string/preferences"
 			android:taskAffinity=".MainActivity"
+			android:theme="@style/AppThemeCompat"
 			android:launchMode="singleTask" />
 		
 		<activity android:name=".activity.ProjectActivity" android:label="@string/project"

@@ -28,6 +28,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import java.util.concurrent.Executor;
 
@@ -77,6 +80,14 @@ public class PinActivity extends AppCompatActivity implements PinView.PinListene
         String pin = MyPreferences.getPin(this);
         PinView v = new PinView(this, this, pin, R.layout.lock);
         setContentView(v.getView());
+
+        ViewCompat.setOnApplyWindowInsetsListener(v.getView(), (vi, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.ime());
+            vi.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        v.getView().requestApplyInsets();
     }
 
     private void askForFingerprint() {

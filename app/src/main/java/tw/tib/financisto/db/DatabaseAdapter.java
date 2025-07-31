@@ -327,6 +327,18 @@ public class DatabaseAdapter extends MyEntityManager {
                 transaction.fromAmount *= multiplier;
                 transaction.toAmount *= multiplier;
             }
+
+            if (transaction.projectId != Project.NO_PROJECT_ID &&
+                    MyPreferences.isUpdateCopiedTransactionProject(context))
+            {
+                // Get recently used project ID in a week
+                // TODO make the time span configurable?
+                long lastUsedProjectId = getLastUsedProjectId(System.currentTimeMillis() - (86400000L * 3));
+                if (lastUsedProjectId != 0) {
+                    transaction.projectId = lastUsedProjectId;
+                }
+            }
+
             long transactionId = insertTransaction(transaction);
             Map<Long, String> attributesMap = getAllAttributesForTransaction(id);
             LinkedList<TransactionAttribute> attributes = new LinkedList<TransactionAttribute>();
@@ -1595,8 +1607,8 @@ public class DatabaseAdapter extends MyEntityManager {
     private static final String[] SUM_FROM_AMOUNT = new String[]{"sum(from_amount)"};
 
     public long fetchBudgetBalance(Map<Long, Category> categories, Map<Long, Project> projects, Budget b) {
-        String where = Budget.createWhere(b, categories, projects);
-        Cursor c = db().query(DatabaseHelper.V_BLOTTER_FOR_ACCOUNT_WITH_SPLITS, SUM_FROM_AMOUNT, where, null, null, null, null);
+        WhereFilter filter = Budget.createWhereFilter(b, categories, projects);
+        Cursor c = db().query(DatabaseHelper.V_BLOTTER_FOR_ACCOUNT_WITH_SPLITS, SUM_FROM_AMOUNT, filter.getSelection(), filter.getSelectionArgs(), null, null, null);
         try {
             if (c.moveToNext()) {
                 return c.getLong(0);
@@ -1946,6 +1958,12 @@ public class DatabaseAdapter extends MyEntityManager {
 
     public long getLastTransactionId() {
         return DatabaseUtils.rawFetchLongValue(this, "select max(_id) from transactions", new String[]{});
+    }
+
+    public long getLastUsedProjectId(long datetime) {
+        return DatabaseUtils.rawFetchLongValue(this,
+                "SELECT project_id FROM transactions WHERE project_id > 0 AND datetime>? ORDER BY datetime DESC LIMIT 1",
+                new String[]{String.valueOf(datetime)});
     }
 
     private static final String ACCOUNT_LAST_TRANSACTION_DATE_UPDATE = "UPDATE " + DatabaseHelper.ACCOUNT_TABLE

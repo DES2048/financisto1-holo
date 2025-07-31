@@ -83,6 +83,7 @@
     <string name="no_categories">No categories</string>
     <string name="no_currencies">No currencies</string>
     <string name="no_projects">No projects</string>
+    <string name="any_projects">(Any projects)</string>
     <string name="no_recur">No recur</string>
     <string name="no_suggestion">No suggestion</string>
     <string name="account_from">From Account</string>
@@ -230,6 +231,9 @@
     <string name="card_number">Card Number</string>
     <string name="card_number_hint">Last 4 digits of the card number</string>
     <string name="issuer">Issuer</string>
+    <string name="icon_text">Text to show as icon (try use emoji!)</string>
+    <string name="accent_color">Accent color code</string>
+    <string name="select_color">Select color</string>
     <string name="cash">Cash</string>
     <string name="sort_order">Sort Order</string>
     <string name="force_gps_location">Force GPS Location</string>
@@ -238,6 +242,8 @@
     <string name="user_interface">User interface</string>
     <string name="sort_accounts">Sort accounts</string>
     <string name="sort_accounts_summary">Define sort order for accounts list (requires restart)</string>
+    <string name="blur_balances">Blur balances</string>
+    <string name="blur_balances_summary">Reveal balance after touch (long touch on Account/Blotter totals to display by currency)</string>
     <string-array name="sort_accounts_entities">
         <item>By Sort Order (Asc)</item>
         <item>By Sort Order (Desc)</item>
@@ -302,6 +308,9 @@
     <string name="duplicate">Duplicate</string>
     <string name="duplicate_keep_time">Duplicate keep time</string>
     <string name="duplicate_keep_date_time">Duplicate keep date/time</string>
+    <string name="change_to_transfer">Convert to Transfer</string>
+    <string name="change_to_transaction">Convert to Transaction</string>
+    <string name="no_suitable_account_for_transfer">No suitable account for transfer…</string>
     <string name="select_from_account">Please select from account…</string>
     <string name="select_to_account">Please select to account…</string>
     <string name="update_balance">Update balance</string>
@@ -311,6 +320,8 @@
     <string name="difference">Difference</string>
     <string name="new_balance">New balance</string>
     <string name="duplicate_success">Transaction has been duplicated with the current date and time</string>
+    <string name="duplicate_success_keep_time">Transaction has been duplicated today with original time</string>
+    <string name="duplicate_success_keep_date_time">Transaction has been duplicated with original date and time</string>
     <string name="duplicate_success_with_multiplier">Transaction has been duplicated with the current date and time (x%d)</string>
     <string name="no_category">No category</string>
     <string name="no_project">No project</string>
@@ -391,10 +402,13 @@
     <string name="shortcut_new_transaction">\'New Transaction\' shortcut</string>
     <string name="shortcut_new_transfer">\'New Transfer\' shortcut</string>
     <string name="shortcut_summary">Add the shortcut to the Home Screen</string>
+    <string name="shortcut_not_supported_by_launcher">Your launcher does not support pinning shortcut</string>
     <string name="use_fixed_layout">Use fixed layout</string>
     <string name="use_fixed_layout_summary">Fix OK/Cancel buttons in the layout</string>
     <string name="use_twin_date_picker">Use twin date picker</string>
     <string name="use_twin_date_picker_summary">Show both calendar and spinner date picker</string>
+    <string name="show_account_balance_on_selector">Show account balance</string>
+    <string name="show_account_balance_on_selector_summary">Show account balance on account selector</string>
     <string name="no_data">No data</string>
     <string name="calculating">Calculating…</string>
     <string name="budget_mode">Ease conditions</string>
@@ -662,6 +676,9 @@
 
     <string name="reset_copied_foreign_transaction_status">Reset copied foreign currency transaction status</string>
     <string name="reset_copied_foreign_transaction_status_summary">Make copied foreign currency transaction pending</string>
+
+    <string name="update_copied_transaction_project">Update Project of copied transaction</string>
+    <string name="update_copied_transaction_project_summary">Make copied transaction use latest project if it has a project</string>
 
     <string name="colorize_weekend_date">Colorize weekend date/time</string>
     <string name="colorize_weekend_date_summary">Show dates of Saturday/Sunday in red</string>
@@ -1029,6 +1046,8 @@
     <string name="sms_delete_alert">Delete this template?</string>
     <string name="new_sms_transaction_text">New transaction added by template from %s</string>
     <string name="new_sms_transaction_title">Template transaction from %s</string>
+    <string name="new_intent_transaction_text">New transaction added from intent</string>
+    <string name="new_intent_transaction_title">Transaction from intent</string>
     <string name="choose_sms_template_type_and_account">Choose type and account (optional)</string>
     <string name="choose_sms_template_transfer_to_account">Choose transfer-to account (optional)</string>
     <string name="tpl_not_transfer">Not transfer</string>
@@ -1130,9 +1149,18 @@
 
     <string name="export_tx_ids">Export TX ID</string>
     <string name="export_attributes">Export attributes</string>
+    <string name="export_running_balance">Export running balance</string>
 
     <string name="transfer_current_balance">Transfer current balance</string>
     <string name="show_transfer_current_balance">Show \'Transfer current balance\'</string>
     <string name="show_transfer_current_balance_summary">Show \'Transfer current balance\' in account quick action menu</string>
+
+    <string name="first_day_of_week">First day of week</string>
+    <string name="first_day_of_week_summary">Change first day of the week used in reporting</string>
+    <string-array name="first_day_of_week_entries">
+        <item>System default</item>
+        <item>Sunday</item>
+        <item>Monday</item>
+    </string-array>
     <string name="scan_qr">Scan QR</string>
 </resources>

@@ -3,6 +3,8 @@ package tw.tib.financisto.activity;
 import static android.app.Activity.RESULT_FIRST_USER;
 import static android.app.Activity.RESULT_OK;
 
+import static java.lang.String.format;
+
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -36,7 +38,11 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.graphics.Insets;
 import androidx.core.view.MenuProvider;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.Lifecycle;
 import androidx.loader.content.Loader;
 
@@ -44,7 +50,9 @@ import org.yae.qr.QRUtils;
 
 import java.lang.ref.WeakReference;
 import java.util.Calendar;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,11 +74,15 @@ import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.AccountType;
 import tw.tib.financisto.model.Budget;
 import tw.tib.financisto.model.Transaction;
+import tw.tib.financisto.model.TransactionAttribute;
+import tw.tib.financisto.rates.ExchangeRate;
 import tw.tib.financisto.utils.IntegrityCheckRunningBalance;
 import tw.tib.financisto.utils.MenuItemInfo;
 import tw.tib.financisto.utils.MyPreferences;
 import tw.tib.financisto.utils.PinProtection;
+import tw.tib.financisto.utils.Utils;
 import tw.tib.financisto.view.NodeInflater;
+import tw.tib.orb.EntityManager;
 
 public class BlotterFragment extends AbstractListFragment<Cursor> implements BlotterOperations.BlotterOperationsCallback {
     private static final String TAG = "BlotterFragment";
@@ -83,11 +95,14 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     private static final int NEW_TRANSACTION_FROM_TEMPLATE_REQUEST = 5;
     private static final int MONTHLY_VIEW_REQUEST = 6;
     private static final int BILL_PREVIEW_REQUEST = 7;
+    private static final int SHOW_TOTALS_REQUEST = 8;
 
     protected static final int FILTER_REQUEST = 6;
     private static final int MENU_DUPLICATE = MENU_ADD + 1;
     private static final int MENU_SAVE_AS_TEMPLATE = MENU_ADD + 2;
     private static final int MENU_SHOW_IN_ACCOUNT_BLOTTER = MENU_ADD + 3;
+    private static final int MENU_CHANGE_TO_TRANSACTION = MENU_ADD + 4;
+    private static final int MENU_CHANGE_TO_TRANSFER = MENU_ADD + 5;
 
     protected TextView totalText;
     protected TextView emptyText;
@@ -197,6 +212,41 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        if (!this.saveFilter) {
+            var toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+            if (toolbar != null) {
+                toolbar.setVisibility(View.VISIBLE);
+                ((AppCompatActivity) getActivity()).setSupportActionBar(toolbar);
+
+                ViewCompat.setOnApplyWindowInsetsListener(getView().findViewById(R.id.toolbar), (v, windowInsets) -> {
+                    Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.statusBars()
+                            | WindowInsetsCompat.Type.captionBar());
+                    Log.d(TAG, format("insets.top: %s", insets.top));
+                    if (v.getPaddingTop() == 0) {
+                        var lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+                        lp.height += insets.top;
+                        v.setPadding(0, insets.top, 0, 0);
+                        v.setLayoutParams(lp);
+                    }
+                    return WindowInsetsCompat.CONSUMED;
+                });
+            }
+        }
+
+        View vi = view.findViewById(R.id.bottom_bar);
+        if (vi != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(vi, (v, windowInsets) -> {
+                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                        | WindowInsetsCompat.Type.statusBars()
+                        | WindowInsetsCompat.Type.captionBar()
+                        | WindowInsetsCompat.Type.ime());
+                Log.d(TAG, format("insets.bottom: %s", insets.bottom));
+                v.setPadding(0, 0, 0, insets.bottom);
+                return WindowInsetsCompat.CONSUMED;
+            });
+        }
+
         integrityCheck();
 
         backCallback = new OnBackPressedCallback(false) {
@@ -245,7 +295,23 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
 
         totalText = view.findViewById(R.id.total);
         if (totalText != null) {
-            totalText.setOnClickListener(v -> showTotals());
+            totalText.setOnClickListener((v) -> {
+                if (MyPreferences.isBlurBalances(getContext())) {
+                    if (totalText.getPaint().getMaskFilter() != null) {
+                        totalText.getPaint().setMaskFilter(null);
+                        totalText.invalidate();
+                    } else {
+                        Utils.applyBlur(getView().findViewById(R.id.total));
+                    }
+                }
+                else {
+                    showTotals();
+                }
+            });
+            totalText.setOnLongClickListener((v) -> {
+                showTotals();
+                return true;
+            });
         }
 
         emptyText = view.findViewById(android.R.id.empty);
@@ -361,18 +427,20 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                                             Criteria.btw(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val3, "-" + val2));
                                 }
                             }
-                            String likePattern = String.format("%%%s%%", text);
+                            String likePattern = format("%%%s%%", text);
                             if (amount == null) {
                                 blotterFilter.eq(Criteria.or(
                                         Criteria.like(BlotterFilter.NOTE, likePattern),
-                                        Criteria.like(BlotterFilter.PAYEE, likePattern)
+                                        Criteria.like(BlotterFilter.PAYEE, likePattern),
+                                        Criteria.like(BlotterFilter.CATEGORY_NAME, likePattern)
                                 ));
                             }
                             else {
                                 blotterFilter.eq(Criteria.or(
                                         amount,
                                         Criteria.like(BlotterFilter.NOTE, likePattern),
-                                        Criteria.like(BlotterFilter.PAYEE, likePattern)
+                                        Criteria.like(BlotterFilter.PAYEE, likePattern),
+                                        Criteria.like(BlotterFilter.CATEGORY_NAME, likePattern)
                                 ));
                             }
 
@@ -460,10 +528,10 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         }, getViewLifecycleOwner(), Lifecycle.State.RESUMED);
     }
 
-    private void showTotals() {
+    protected void showTotals() {
         Intent intent = new Intent(getContext(), BlotterTotalsDetailsActivity.class);
         blotterFilter.toIntent(intent);
-        startActivityForResult(intent, -1);
+        startActivityForResult(intent, SHOW_TOTALS_REQUEST);
     }
 
     protected void prepareTransactionActionGrid() {
@@ -608,12 +676,22 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
             menus.add(new MenuItemInfo(MENU_DUPLICATE, R.string.duplicate));
             menus.add(new MenuItemInfo(MENU_SAVE_AS_TEMPLATE, R.string.save_as_template));
             menus.add(new MenuItemInfo(MENU_SHOW_IN_ACCOUNT_BLOTTER, R.string.transaction_show_in_account_blotter));
+            Transaction t = db.getTransaction(id);
+            if (t.isTransfer()) {
+                menus.add(new MenuItemInfo(MENU_CHANGE_TO_TRANSACTION, R.string.change_to_transaction));
+            }
+            else {
+                menus.add(new MenuItemInfo(MENU_CHANGE_TO_TRANSFER, R.string.change_to_transfer));
+            }
             return menus;
         }
     }
 
     @Override
     public boolean onPopupItemSelected(int itemId, View view, int position, long id) {
+        Transaction t;
+        Account fromAccount, toAccount = null;
+
         if (!super.onPopupItemSelected(itemId, view, position, id)) {
             switch (itemId) {
                 case MENU_DUPLICATE:
@@ -624,14 +702,145 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                     Toast.makeText(getContext(), R.string.save_as_template_success, Toast.LENGTH_SHORT).show();
                     return true;
                 case MENU_SHOW_IN_ACCOUNT_BLOTTER:
-                    Transaction t = db.getTransaction(id);
-                    Account a = db.getAccount(t.fromAccountId);
+                    t = db.getTransaction(id);
+                    fromAccount = db.getAccount(t.fromAccountId);
                     Intent intent = new Intent(getContext(), BlotterActivity.class);
-                    Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(a.id))
-                            .toIntent(a.title, intent);
+                    Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(fromAccount.id))
+                            .toIntent(fromAccount.title, intent);
                     intent.putExtra(BlotterFilterActivity.IS_ACCOUNT_FILTER, true);
                     intent.putExtra(GO_TO_TRANSACTION, id);
                     startActivity(intent);
+                    return true;
+                case MENU_CHANGE_TO_TRANSACTION:
+                case MENU_CHANGE_TO_TRANSFER:
+                    // transfers in database is always stored as
+                    // from_account_id (negative amount) -> to_account_id (positive amount)
+                    // when the blotter is showing to_account_id, we want converted transaction
+                    // stay at the same account
+                    long blotterAccountId = blotterFilter.getAccountId();
+                    t = db.getTransaction(id);
+                    fromAccount = db.getAccount(t.fromAccountId);
+
+                    var attrsMap = db.getAllAttributesForTransaction(id);
+                    var attrs = new LinkedList<TransactionAttribute>();
+                    for (Map.Entry<Long, String> attr : attrsMap.entrySet()) {
+                        var ta = new TransactionAttribute();
+                        ta.attributeId = attr.getKey();
+                        ta.value = attr.getValue();
+                        attrs.add(ta);
+                    }
+
+                    if (t.isTransfer()) {
+                        // transfer to transaction
+                        toAccount = db.getAccount(t.toAccountId);
+
+                        // two side of transfer is not in the same currency, keep foreign currency value
+                        if (fromAccount.currency.id != toAccount.currency.id) {
+                            if (t.fromAccountId == blotterAccountId) {
+                                t.originalFromAmount = -t.toAmount;
+                                t.originalCurrencyId = toAccount.currency.id;
+                            }
+                            else { // (t.toAccountId == blotterAccountId)
+                                t.originalFromAmount = t.fromAmount;
+                                t.originalCurrencyId = fromAccount.currency.id;
+                            }
+                        }
+
+                        if (t.toAccountId == blotterAccountId) {
+                            t.fromAccountId = blotterAccountId;
+                            t.fromAmount = t.toAmount;
+                            t.originalFromAmount *= -1;
+                        }
+                        t.toAccountId = 0;
+                        t.toAmount = 0;
+                    }
+                    else {
+                        // transaction to transfer
+
+                        // if the transaction's account had transfer to other account,
+                        // use the last used transfer target
+                        if (t.fromAmount < 0 && fromAccount.lastAccountId != 0) {
+                            toAccount = db.getAccount(fromAccount.lastAccountId);
+                            if (toAccount != null) {
+                                t.toAccountId = fromAccount.lastAccountId;
+                            }
+                        }
+                        // (positive amount) look for accounts transferred to this account
+                        // or (+/- amount) try to get a different account with same currency
+                        if (toAccount == null) {
+                            try (Cursor c = db.getAllActiveAccounts()) {
+                                // positive amount - look for accounts previously transfer to this account
+                                if (t.fromAmount > 0) {
+                                    while (c.moveToNext()) {
+                                        toAccount = EntityManager.loadFromCursor(c, Account.class);
+                                        if (toAccount.lastAccountId == fromAccount.id) {
+                                            t.toAccountId = toAccount.id;
+                                            break;
+                                        }
+                                    }
+                                    c.moveToFirst();
+                                }
+                                // negative amount / earlier block didn't found a suitable account
+                                if (toAccount == null) {
+                                    while (c.moveToNext()) {
+                                        toAccount = EntityManager.loadFromCursor(c, Account.class);
+                                        if (toAccount.id != fromAccount.id && toAccount.currency.id == fromAccount.currency.id) {
+                                            t.toAccountId = toAccount.id;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            // give up
+                            if (toAccount == null) {
+                                Toast.makeText(getContext(), R.string.no_suitable_account_for_transfer,
+                                        Toast.LENGTH_SHORT).show();
+                                return true;
+                            }
+                        }
+
+                        // original entered foreign currency is same as transfer target
+                        // use the value directly
+                        if (t.originalCurrencyId == toAccount.currency.id) {
+                            t.toAmount = -t.originalFromAmount;
+                        }
+                        else {
+                            var rateProvider = db.getLatestRates();
+                            var rate = rateProvider.getRate(fromAccount.currency, toAccount.currency);
+                            if (rate != ExchangeRate.NA) {
+                                t.toAmount = -(long) (t.fromAmount * rate.rate);
+                            } else {
+                                t.toAmount = -t.fromAmount;
+                            }
+
+                            t.toAmount = Utils.roundAmount(getContext(), toAccount.currency, t.toAmount);
+                        }
+
+                        t.originalFromAmount = 0;
+                        t.originalCurrencyId = 0;
+
+                        if (t.fromAmount > 0) {
+                            var tempAccountId = t.fromAccountId;
+                            t.fromAccountId = t.toAccountId;
+                            t.toAccountId = tempAccountId;
+
+                            var tempAmount = t.toAmount;
+                            t.toAmount = t.fromAmount;
+                            t.fromAmount = tempAmount;
+                        }
+
+                        if (!MyPreferences.isShowPayeeInTransfers(getContext())) {
+                            t.payeeId = 0;
+                        }
+                        if (!MyPreferences.isShowCategoryInTransferScreen(getContext())) {
+                            t.categoryId = 0;
+                        }
+                    }
+                    // delete then insert to properly update running balance
+                    db.deleteTransaction(t.id);
+                    t.id = -1;
+                    db.insertOrUpdate(t, attrs);
+                    recreateCursor();
                     return true;
             }
         }
@@ -658,20 +867,21 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
 
     private long duplicateTransaction(long id, int multiplier, KeepTime keepTime) {
         long newId;
+        String toastText;
         if (keepTime == KeepTime.KEEP_TIME) {
             newId = new BlotterOperations(getContext(), this, db, id).duplicateTransactionKeepTime();
+            toastText = getString(R.string.duplicate_success_keep_time);
         }
         else if (keepTime == KeepTime.KEEP_DATE_TIME) {
             newId = new BlotterOperations(getContext(), this, db, id).duplicateTransactionKeepDateTime();
+            toastText = getString(R.string.duplicate_success_keep_date_time);
         }
         else {
             newId = new BlotterOperations(getContext(), this, db, id).duplicateTransaction(multiplier);
+            toastText = getString(R.string.duplicate_success);
         }
-        String toastText;
         if (multiplier > 1) {
             toastText = getString(R.string.duplicate_success_with_multiplier, multiplier);
-        } else {
-            toastText = getString(R.string.duplicate_success);
         }
         Toast.makeText(getContext(), toastText, Toast.LENGTH_LONG).show();
         recreateCursor();
@@ -711,7 +921,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     @Override
     protected Cursor loadInBackground() {
         Cursor c;
-        blotterFilter.recalculatePeriod();
+        blotterFilter.recalculatePeriod(getContext());
         WhereFilter blotterFilterCopy = WhereFilter.copyOf(blotterFilter);
 
         new Handler(Looper.getMainLooper()).post(()-> {
@@ -728,7 +938,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         this.lastTxId = db.getLastTransactionId();
         this.lastDay = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
         long t2 = System.nanoTime();
-        Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + String.format("%,d", (t2 - t1)) + " ns");
+        Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + format("%,d", (t2 - t1)) + " ns");
         long accountId = blotterFilterCopy.getAccountId();
         if (accountId != -1) {
             c = db.getBlotterForAccount(blotterFilterCopy);
@@ -736,7 +946,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
             c = db.getBlotter(blotterFilterCopy);
         }
         c.getCount();
-        Log.d(TAG, "createCursor: " + String.format("%,d", (System.nanoTime() - t1)) + " ns");
+        Log.d(TAG, "createCursor: " + format("%,d", (System.nanoTime() - t1)) + " ns");
         return c;
     }
 
@@ -926,7 +1136,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         if (lastTxId != BEFORE_INITIAL_LOAD) {
             long t1 = System.nanoTime();
             long currentLastTxId = db.getLastTransactionId();
-            Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + String.format("%,d", System.nanoTime() - t1) + " ns");
+            Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + format("%,d", System.nanoTime() - t1) + " ns");
             long currentDay = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
             if (currentLastTxId != lastTxId || currentDay != lastDay) {
                 Log.d(TAG, "lastTxId " + lastTxId + " != " + currentLastTxId +

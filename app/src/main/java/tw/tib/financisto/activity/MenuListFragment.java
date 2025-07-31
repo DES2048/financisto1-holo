@@ -10,9 +10,13 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.ListFragment;
 
 import org.androidannotations.annotations.AfterViews;
@@ -50,6 +54,15 @@ public class MenuListFragment extends ListFragment {
 
     @AfterViews
     protected void init() {
+        ViewCompat.setOnApplyWindowInsetsListener(getView().findViewById(android.R.id.list), (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.statusBars()
+                    | WindowInsetsCompat.Type.captionBar());
+            v.setPadding(0, 0, 0, insets.bottom);
+            ((ViewGroup) v).setClipToPadding(false);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         setListAdapter(new SummaryEntityListAdapter(getContext(), MenuListItem.values()));
     }
 

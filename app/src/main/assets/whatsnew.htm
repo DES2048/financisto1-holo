@@ -25,11 +25,145 @@
 
 <ul>
     <li>Press the funnel icon on the left of Category to open search box with autocomplete.</li>
-    <li><a href="https://github.com/tiberiusteng/financisto1-holo/issues/2#issuecomment-1868264039">Why attaching images are not currently supported</a></li>
     <li><a href="docs/notification_template.htm">Notification Template docs</a></li>
 </ul>
 
 <h2>Changelog</h2>
+
+<p><b>2025-07-31</b></p>
+<dl>
+    <dt><span>[*]</span> When blurring balances is not enabled, clicking balance goes to
+        account blotter like before; long press balances opens account quick action menu</dt>
+</dl>
+
+<p><b>2025-07-24</b></p>
+<dl>
+    <dt><span>[*]</span> Try to display exception cause when import fails</dt>
+</dl>
+
+<p><b>2025-07-20</b></p>
+<dl>
+    <dt><span>[+]</span> Payee/Project/Locations name are sorted with respect to locale</dt>
+    <dt><span>[+]</span> Change existing transaction to transfer/vice versa<br />
+        Long press transaction/transfer in blotter and choose last menu item</dt>
+</dl>
+
+<p><b>2025-07-18</b></p>
+<dl>
+    <dt><span>[+]</span> Blur account/blotter balance (enable in Prefs -&gt; Accounts List)</dt>
+    <dt><span>[-]</span> Fix blotter filter clearing category</dt>
+    <dt><span>[-]</span> Fix account list remembering scroll position</dt>
+</dl>
+
+<p><b>2025-07-14</b></p>
+<dl>
+    <dt><span>[+]</span> Show balance on transaction account selector (enable in Prefs -&gt; New Transactions)</dt>
+    <dt><span>[+]</span> Czech translation update by Zajko</dt>
+    <dt><span>[+]</span> Account/blotter totals window: show exchange rates used for calculation;
+        totals in home currency is changed to calculate with latest rates, instead of converting
+        each transaction with history rate at or earlier than the transaction</dt>
+</dl>
+
+<p><b>2025-07-10</b></p>
+<dl>
+    <dt><span>[-]</span> Fix preferences screens</dt>
+</dl>
+
+<p><b>2025-07-09</b></p>
+<dl>
+    <dt><span>[+]</span> Account list improve: Use character/emoji as account icon, choose accent color</dt>
+</dl>
+
+<p><b>2025-07-07</b></p>
+<dl>
+    <dt><span>[+]</span> Android SDK update, edge-to-edge display on Android 15+, field name font tweak</dt>
+    <dt><span>[+]</span> New transaction intent supports credit card payment field</dt>
+    <dt><span>[*]</span> Blotter search now includes category title</dt>
+</dl>
+
+<p><b>2025-07-05</b></p>
+<dl>
+    <dt><span>[+]</span> Allow creating new transaction with intent sent from eg. MacroDroid</dt>
+</dl>
+
+<p><b>2025-05-30</b></p>
+<dl>
+    <dt><span>[-]</span> Fix QIF export remembering uploading to Google Drive</dt>
+</dl>
+
+<p><b>2025-05-06</b></p>
+<dl>
+    <dt><span>[-]</span> Changing payee no longer remove split</dt>
+    <dt><span>[-]</span> Importing CSV from app menu no longer duplicates imported transactions</dt>
+</dl>
+
+<p><b>2025-05-03</b></p>
+<dl>
+    <dt><span>[+]</span> Limit budget on transactions strictly with "no project" vs any project</dt>
+    <dt><span>[-]</span> Prevent calculator crash when only a decimal point is entered</dt>
+    <dt><span>[-]</span> Fix mixed amount text on scheduled transaction notifications</dt>
+</dl>
+
+<p><b>2025-04-10</b></p>
+<dl>
+    <dt><span>[*]</span> Fix QIF import from anMoney (comma as decimal, categories in splits)</dt>
+</dl>
+
+<p><b>2025-04-06</b></p>
+<dl>
+    <dt><span>[+]</span> Notification processor supports non-breaking space in amount number</dt>
+</dl>
+
+<p><b>2025-03-20</b></p>
+<dl>
+    <dt><span>[-]</span> Fix last used project search range</dt>
+    <dt><span>[-]</span> Fix crash when credit card account has not selected an issuer</dt>
+    <dt><span>[-]</span> Fix crash in report</dt>
+</dl>
+
+<p><b>2025-03-13</b></p>
+<dl>
+    <dt><span>[+]</span> Ukrainian translation update by paul128</dt>
+    <dt><span>[-]</span> Fix amount fraction display width again (proper support smallest size)</dt>
+</dl>
+
+<p><b>2025-03-05</b></p>
+<dl>
+    <dt><span>[-]</span> Fix amount fraction display width</dt>
+    <dt><span>[-]</span> Fix crash if first day of week is not set</dt>
+</dl>
+
+<p><b>2025-03-02 a</b></p>
+<dl>
+    <dt><span>[+]</span> CSV export: added running balance field</dt>
+    <dt><span>[+]</span> When copying a transaction with project, it can optionally change the copied
+        transaction to use the project most recently used in a week (enable in Preferences -&gt; Blotter)</dt>
+    <dt><span>[+]</span> Configurable first day of week (sunday, monday) for filtering and reporting</dt>
+    <dt><span>[-]</span> Show 15 recurrence dates to help catching month-end issues (currently
+        recurrences set on day 29, 30, 31 of month won't be executed on months without these days,
+        this would probably be improved but don't hold your breath)</dt>
+    <dt><span>[-]</span> Fix calculator can't divide by a fraction number</dt>
+</dl>
+
+<p><b>2025-02-19</b></p>
+<dl>
+    <dt><span>[+]</span> Blotter bottom buttons now scrollable, no longer push out balance display
+        (fixes issue when the device is configured to use large text/display size)</dt>
+    <dt><span>[*]</span> Upgrade Dropbox SDK</dt>
+</dl>
+
+<p><b>2025-02-12</b></p>
+<dl>
+    <dt><span>[-]</span> Fix 'Treat Transfer to Credit Card as Bill Payment' so it no longer ignores
+        transfer from credit card to other accounts (e.g. cash advance)</dt>
+</dl>
+
+<p><b>2025-02-07 a</b></p>
+<dl>
+    <dt><span>[+]</span> Implemented App Shortcuts (long press app icon in launcher)</dt>
+    <dt><span>[-]</span> Fix creating launcher shortcuts for new transaction/transfer on Android 8+</dt>
+    <dt><span>[-]</span> Fix widget creating another instance of main screen</dt>
+</dl>
 
 <p><b>2025-02-01</b></p>
 <dl>

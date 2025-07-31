@@ -67,9 +67,10 @@ public class TransactionsTotalCalculator {
 
     public Total[] getTransactionsBalance() {
         WhereFilter filter = this.filter;
-        if (filter.getAccountId() == -1) {
+        if (filter.getAccountId() == -1 && filter.get(WhereFilter.TAG_AS_IS) == null) {
             filter = excludeAccountsNotIncludedInTotalsAndSplits(filter);
         }
+        filter.remove(WhereFilter.TAG_AS_IS);
         try (Cursor c = db.db().query(DatabaseHelper.V_BLOTTER_FOR_ACCOUNT_WITH_SPLITS, BALANCE_PROJECTION,
                 filter.getSelection(), filter.getSelectionArgs(),
                 BALANCE_GROUPBY, null, null)) {
@@ -83,7 +84,7 @@ public class TransactionsTotalCalculator {
                 total.balance = balance;
                 totals.add(total);
             }
-            return totals.toArray(new Total[totals.size()]);
+            return totals.toArray(new Total[0]);
         }
     }
 
@@ -134,7 +135,7 @@ public class TransactionsTotalCalculator {
     }
 
     private static long calculateTotalFromCursor(DatabaseAdapter db, Cursor c, Currency toCurrency) throws UnableToCalculateRateException {
-        ExchangeRateProvider rates = db.getHistoryRates();
+        ExchangeRateProvider rates = db.getLatestRates();
         BigDecimal balance = BigDecimal.ZERO;
         while (c.moveToNext()) {
             balance = balance.add(getAmountFromCursor(db, c, toCurrency, rates, 0));
@@ -153,7 +154,7 @@ public class TransactionsTotalCalculator {
     }
 
     public static long[] calculateTotalFromList(DatabaseAdapter db, List<TransactionInfo> list, Currency toCurrency) throws UnableToCalculateRateException {
-        ExchangeRateProvider rates = db.getHistoryRates();
+        ExchangeRateProvider rates = db.getLatestRates();
         BigDecimal income = BigDecimal.ZERO;
         BigDecimal expenses = BigDecimal.ZERO;
         for (TransactionInfo t : list) {
@@ -217,6 +218,7 @@ public class TransactionsTotalCalculator {
                         onlineExchangeRate.date = datetime;
                         new DatabaseAdapter(context).saveRate(onlineExchangeRate);
                         ((ExchangeRatesCollection) rates).addRate(onlineExchangeRate);
+                        exchangeRate = onlineExchangeRate;
                     }
                     else {
                         new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context,

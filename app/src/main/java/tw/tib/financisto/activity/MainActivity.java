@@ -10,6 +10,9 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
@@ -23,7 +26,6 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.util.HashMap;
 
 import tw.tib.financisto.R;
-import tw.tib.financisto.activity.MenuListFragment_;
 import tw.tib.financisto.bus.GreenRobotBus;
 import tw.tib.financisto.bus.RefreshCurrentTab;
 import tw.tib.financisto.bus.SwitchToMenuTabEvent;
@@ -36,10 +38,12 @@ import tw.tib.financisto.utils.MyPreferences;
 import tw.tib.financisto.utils.PinProtection;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+
     private GreenRobotBus greenRobotBus;
-    private Fragment fragments[];
     HashMap<String, TabLayout.Tab> tabs;
     private TabLayout tabLayout;
+    private ViewPager2 viewPager;
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -61,30 +65,38 @@ public class MainActivity extends AppCompatActivity {
 
         initialLoad();
 
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.tabs), (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.statusBars()
+                    | WindowInsetsCompat.Type.captionBar());
+            v.setPadding(0, insets.top, 0, 0);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         tabLayout = findViewById(R.id.tabs);
-        ViewPager2 viewPager = findViewById(R.id.viewpager);
+        viewPager = findViewById(R.id.viewpager);
 
         viewPager.setUserInputEnabled(false);
 
-        fragments = new Fragment[]{
-                new AccountListFragment(),
-                new BlotterFragment(true),
-                new BudgetListFragment(),
-                new ReportsListFragment(),
-                new MenuListFragment_()
-        };
         tabs = new HashMap<>();
 
         viewPager.setAdapter(new FragmentStateAdapter(this) {
             @NonNull
             @Override
-            public Fragment createFragment(int position) {
-                return fragments[position];
+            public Fragment createFragment(int position)
+            {
+                switch (position) {
+                    case 0: return new AccountRecyclerFragment();
+                    case 1: return new BlotterFragment(true);
+                    case 2: return new BudgetListFragment();
+                    case 3: return new ReportsListFragment();
+                    default: return new MenuListFragment_();
+                }
             }
 
             @Override
             public int getItemCount() {
-                return fragments.length;
+                return 5;
             }
         });
 
@@ -189,8 +201,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void refreshCurrentTab() {
-        if (fragments[tabLayout.getSelectedTabPosition()] instanceof RefreshSupportedActivity) {
-            Fragment f = fragments[tabLayout.getSelectedTabPosition()];
+        Fragment f = getSupportFragmentManager().findFragmentByTag("f" + viewPager.getCurrentItem());
+        if (f instanceof RefreshSupportedActivity) {
             if (f.isAdded()) {
                 RefreshSupportedActivity r = (RefreshSupportedActivity) f;
                 r.recreateCursor();

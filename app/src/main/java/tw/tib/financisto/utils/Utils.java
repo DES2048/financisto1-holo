@@ -16,6 +16,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.graphics.BlurMaskFilter;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.text.Spannable;
@@ -28,10 +29,15 @@ import android.widget.EditText;
 import android.widget.TextView;
 import tw.tib.financisto.R;
 import tw.tib.financisto.model.Account;
+import tw.tib.financisto.model.AccountType;
 import tw.tib.financisto.model.Currency;
 import tw.tib.financisto.model.Total;
+import tw.tib.financisto.model.TotalError;
+import tw.tib.financisto.rates.ExchangeRate;
+import tw.tib.financisto.rates.ExchangeRateProvider;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class Utils {
 
@@ -41,8 +47,8 @@ public class Utils {
     private static final int zeroColor = Resources.getSystem().getColor(android.R.color.secondary_text_dark);
 
     private Context context = null;
-    private final StringBuilder sb = new StringBuilder();
-    private static final StringBuilder sb2 = new StringBuilder();
+
+    private boolean isShowAccountBalanceOnSelector = false;
 
     public int positiveColor = 0;
     public int negativeColor = 0;
@@ -59,6 +65,8 @@ public class Utils {
             this.futureColor = r.getColor(R.color.future_color);
             this.splitColor = r.getColor(R.color.split_color);
             this.context = context;
+
+            this.isShowAccountBalanceOnSelector = MyPreferences.isShowAccountBalanceOnSelector(context);
         }
     }
 
@@ -90,7 +98,7 @@ public class Utils {
     }
 
     public static StringBuilder amountToString(StringBuilder sb, Currency c, BigDecimal amount, boolean addPlus) {
-        sb2.setLength(0);
+        var sb2 = new StringBuilder();
         if (amount.compareTo(BigDecimal.ZERO) > 0) {
             if (addPlus) {
                 sb2.append("+");
@@ -229,7 +237,7 @@ public class Utils {
     }
 
     public String getTransferTitleText(String fromAccountTitle, String toAccountTitle) {
-        sb.setLength(0);
+        var sb = new StringBuilder();
         sb.append(fromAccountTitle).append(TRANSFER_DELIMITER).append(toAccountTitle);
         return sb.toString();
     }
@@ -244,7 +252,7 @@ public class Utils {
     }
 
     public String getTransferAmountText(Currency fromCurrency, long fromAmount, Currency toCurrency, long toAmount) {
-        sb.setLength(0);
+        var sb = new StringBuilder();
         if (sameCurrency(fromCurrency, toCurrency)) {
             Utils.amountToString(sb, toCurrency, toAmount);
         } else {
@@ -259,7 +267,7 @@ public class Utils {
     }
 
     public void setTransferBalanceText(TextView textView, Currency fromCurrency, long fromBalance, Currency toCurrency, long toBalance) {
-        sb.setLength(0);
+        var sb = new StringBuilder();
         Utils.amountToString(sb, fromCurrency, fromBalance, false).append(TRANSFER_DELIMITER);
         Utils.amountToString(sb, toCurrency, toBalance, false);
         textView.setText(sb.toString());
@@ -328,4 +336,73 @@ public class Utils {
 
     }
 
+    public void setAccountTitleBalance(
+            Account a, TextView accountText, TextView accountBalanceText, TextView accountLimitText
+    ) {
+        if (isShowAccountBalanceOnSelector) {
+            long amount = a.totalAmount;
+            AccountType type = AccountType.valueOf(a.type);
+            if (type == AccountType.CREDIT_CARD && a.limitAmount != 0) {
+                long limitAmount = Math.abs(a.limitAmount);
+                long balance = limitAmount + amount;
+                accountLimitText.setVisibility(View.VISIBLE);
+                setAmountText(accountBalanceText, a.currency, amount, false);
+                setAmountText(accountLimitText, a.currency, balance, false);
+            } else {
+                accountLimitText.setVisibility(View.GONE);
+                setAmountText(accountBalanceText, a.currency, amount, false);
+            }
+            accountBalanceText.setVisibility(View.VISIBLE);
+        }
+        accountText.setText(a.title);
+    }
+
+    public Total calculateTotalInCurrency(Total[] totals, ExchangeRateProvider rates, Currency inCurrency) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Total item : totals) {
+            if (item.currency.id == inCurrency.id) {
+                total = total.add(BigDecimal.valueOf(item.balance));
+            }
+            else {
+                ExchangeRate rate = rates.getRate(item.currency, inCurrency);
+                if (rate == ExchangeRate.NA) {
+                    return new Total(inCurrency, TotalError.lastRateError(item.currency));
+                } else {
+                    total = total.add(BigDecimal.valueOf(rate.rate * item.balance));
+                }
+            }
+        }
+        Total result = new Total(inCurrency);
+        result.balance = total.longValue();
+        return result;
+    }
+
+    public static void applyBlur(TextView textView) {
+        float radius = textView.getTextSize() / 3.0f;
+        BlurMaskFilter filter = new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL);
+        textView.getPaint().setMaskFilter(filter);
+    }
+
+    public static long roundAmount(Context context, Currency currency, long amount) {
+        if (MyPreferences.isRoundUpAmount(context) && currency != null) {
+            long sign, absAmount;
+            if (amount < 0) {
+                sign = -1;
+                absAmount = amount * -1;
+            }
+            else {
+                sign = 1;
+                absAmount = amount;
+            }
+            BigDecimal bd = new BigDecimal(absAmount).setScale(2, RoundingMode.UNNECESSARY);
+            BigDecimal hundred = new BigDecimal(100);
+
+            bd = bd.divide(hundred, RoundingMode.UNNECESSARY);
+            bd = bd.setScale(currency.decimals, RoundingMode.HALF_UP);
+            bd = bd.multiply(hundred);
+
+            return bd.longValue() * sign;
+        }
+        return amount;
+    }
 }

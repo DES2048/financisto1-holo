@@ -104,6 +104,16 @@ public class MyPreferences {
 		AccountListDateType(String tag) { this.tag = tag; }
 	}
 
+	public enum FirstDayOfWeek {
+		SYSTEM_DEFAULT("SYSTEM_DEFAULT"),
+		SUNDAY("SUNDAY"),
+		MONDAY("MONDAY");
+
+		public final String tag;
+
+		FirstDayOfWeek(String tag) { this.tag = tag; }
+	}
+
 	public enum EntitySelectorType {
 		DROPDOWN("DROPDOWN"),
 		SEARCH("SEARCH");
@@ -230,6 +240,11 @@ public class MyPreferences {
 		} catch (IllegalArgumentException e) {
 			return EntitySelectorType.SEARCH;
 		}
+	}
+
+	public static boolean isShowAccountBalanceOnSelector(Context context) {
+		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+		return sharedPreferences.getBoolean("ntsl_show_account_balance_on_selector", false);
 	}
 
 	public static EntitySelectorType getPayeeSelectorType(Context context) {
@@ -506,6 +521,11 @@ public class MyPreferences {
 		return sharedPreferences.getBoolean("reset_copied_foreign_transaction_status", false);
 	}
 
+	public static boolean isUpdateCopiedTransactionProject(Context context) {
+		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+		return sharedPreferences.getBoolean("update_copied_transaction_project", false);
+	}
+
 	public static boolean isColorizeWeekendDate(Context context) {
 		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
 		return sharedPreferences.getBoolean("colorize_weekend_date", true);
@@ -539,6 +559,16 @@ public class MyPreferences {
 		context = context.createConfigurationContext(config);
 		Log.i("MyPreferences", "Switching locale to " + config.locale.getDisplayName());
 		return context;
+	}
+
+	public static FirstDayOfWeek getFirstDayOfWeek(Context context) {
+		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+		String firstDayOfWeek = sharedPreferences.getString("first_day_of_week", FirstDayOfWeek.SYSTEM_DEFAULT.name());
+		try {
+			return FirstDayOfWeek.valueOf(firstDayOfWeek);
+		} catch (IllegalArgumentException e) {
+			return FirstDayOfWeek.SYSTEM_DEFAULT;
+		}
 	}
 
 	public static boolean isCameraSupported(Context context) {

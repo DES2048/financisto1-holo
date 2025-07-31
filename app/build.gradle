@@ -1,7 +1,7 @@
 repositories {
     google()
     mavenCentral()
-    maven { url 'https://jitpack.io' }
+    maven { url = 'https://jitpack.io' }
 }
 
 configurations {
@@ -14,14 +14,14 @@ configurations {
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'tw.tib.financisto'
-    compileSdkVersion 34
+    namespace = 'tw.tib.financisto'
+    compileSdk = 36
 
     defaultConfig {
         applicationId "tw.tib.financisto"
         minSdkVersion 21
-        targetSdkVersion 34
-        multiDexEnabled true
+        targetSdkVersion 36
+        multiDexEnabled = true
 
         testApplicationId "tw.tib.financisto.test"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -40,7 +40,7 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt', 'proguard-google-api-client.txt'
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
     }
     packagingOptions {
@@ -54,7 +54,7 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     buildFeatures {
-        buildConfig true
+        buildConfig = true
     }
 }
 
@@ -79,8 +79,8 @@ dependencies {
     implementation 'com.google.apis:google-api-services-drive:v3-rev20241206-2.0.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.1'
     implementation 'com.google.auth:google-auth-library-credentials:1.30.1'
-    implementation 'com.dropbox.core:dropbox-core-sdk:6.0.0'
-    implementation 'com.dropbox.core:dropbox-android-sdk:6.0.0'
+    implementation 'com.dropbox.core:dropbox-core-sdk:7.0.0'
+    implementation 'com.dropbox.core:dropbox-android-sdk:7.0.0'
     implementation 'com.squareup.okhttp3:okhttp:3.11.0'
     implementation "com.google.android.gms:play-services-base:18.2.0"
     implementation "com.google.android.gms:play-services-drive:17.0.0"

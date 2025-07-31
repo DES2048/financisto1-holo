@@ -15,9 +15,15 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.format.DateUtils;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ListAdapter;
 import android.widget.TextView;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import tw.tib.financisto.R;
 import tw.tib.financisto.datetime.Period;
 import tw.tib.financisto.datetime.PeriodType;
@@ -52,6 +58,17 @@ public class PlannerActivity extends AbstractListActivity<TransactionList> {
 
     @Override
     protected void internalOnCreate(Bundle savedInstanceState) {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.planner), (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.statusBars()
+                    | WindowInsetsCompat.Type.captionBar());
+            var lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            lp.topMargin = insets.top;
+            lp.bottomMargin = insets.bottom;
+            v.setLayoutParams(lp);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         totalText = (TextView)findViewById(R.id.total);
         filterText = (TextView)findViewById(R.id.period);
         ImageButton bFilter = (ImageButton) findViewById(R.id.bFilter);
@@ -83,7 +100,7 @@ public class PlannerActivity extends AbstractListActivity<TransactionList> {
         if (criteria == null) {
             Calendar date = Calendar.getInstance();
             date.add(Calendar.MONTH, 1);
-            criteria = new DateTimeCriteria(PeriodType.THIS_MONTH);
+            criteria = new DateTimeCriteria(this, PeriodType.THIS_MONTH);
         }
         long now = System.currentTimeMillis();
         if (now > criteria.getLongValue1()) {

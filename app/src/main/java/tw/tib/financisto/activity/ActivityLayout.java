@@ -15,6 +15,11 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.database.Cursor;
 import androidx.core.util.Pair;
+
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.*;
 import tw.tib.financisto.R;
@@ -73,6 +78,30 @@ public class ActivityLayout {
 		return labelView;
 	}
 
+	public static class ForeignTotal {
+		public TextView left;
+		public TextView equal;
+		public TextView right;
+		public TextView rate;
+
+		public ForeignTotal(TextView left, TextView equal, TextView right, TextView rate) {
+			this.left = left;
+			this.equal = equal;
+			this.right = right;
+			this.rate = rate;
+		}
+	}
+
+	public ForeignTotal addInfoNodeForeignTotal(LinearLayout layout, int id, String label) {
+		Builder b = inflater.new Builder(layout, R.layout.select_entry_foreign_total);
+		View v = b.withId(id, listener).create();
+		return new ForeignTotal(
+				v.findViewById(R.id.left),
+				v.findViewById(R.id.equal),
+				v.findViewById(R.id.right),
+				v.findViewById(R.id.rate_info));
+	}
+
 	public TextView addInfoNode(LinearLayout layout, int id, int labelId, int defaultValueResId) {
 		Builder b = inflater.new Builder(layout, R.layout.select_entry_simple);
 		View v = b.withId(id, listener).withLabel(labelId).withData(defaultValueResId).create();
@@ -112,6 +141,14 @@ public class ActivityLayout {
 
 	public TextView addListNode(LinearLayout layout, int id, int labelId, int defaultValueResId) {
 		Builder b = inflater.new Builder(layout, R.layout.select_entry);
+		View v = b.withId(id, listener).withLabel(labelId).withData(defaultValueResId).create();
+		TextView data = v.findViewById(R.id.data);
+		data.setTag(v);
+		return data;
+	}
+
+	public TextView addListNodeAccount(LinearLayout layout, int id, int labelId, int defaultValueResId) {
+		Builder b = inflater.new Builder(layout, R.layout.select_entry_account);
 		View v = b.withId(id, listener).withLabel(labelId).withData(defaultValueResId).create();
 		TextView data = v.findViewById(R.id.data);
 		data.setTag(v);
@@ -302,6 +339,38 @@ public class ActivityLayout {
 	public View addEditNode(LinearLayout layout, int labelId, View view) {
 		EditBuilder b = inflater.new EditBuilder(layout, view);
 		return b.withLabel(labelId).create();
+	}
+
+	public View addColorEditNode(LinearLayout layout, int labelId, int buttonId, View.OnClickListener onClickListener, EditText editText) {
+		EditColorBuilder b = inflater.new EditColorBuilder(layout, editText);
+		var view = b.withPaletteButtonId(buttonId, onClickListener).withLabel(labelId).create();
+
+		View colorPreview = view.findViewById(R.id.color_preview);
+
+		editText.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void afterTextChanged(Editable s) {
+				int color = 0;
+				try {
+					color = Color.parseColor(s.toString());
+				} catch (Exception e) {
+					// pass
+				}
+				colorPreview.setBackground(new ColorDrawable(color));
+			}
+
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+			}
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+			}
+		});
+
+		return view;
 	}
 
 	private void selectSingleChoice(Context context, int titleId, ListAdapter adapter, int checkedItem,

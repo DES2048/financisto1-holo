@@ -21,6 +21,7 @@ import android.os.Looper;
 import android.text.InputType;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.*;
 import android.app.DatePickerDialog;
@@ -46,6 +47,7 @@ import tw.tib.financisto.utils.EnumUtils;
 import tw.tib.financisto.utils.MyPreferences;
 import tw.tib.financisto.utils.PicturesUtil;
 import tw.tib.financisto.utils.TransactionUtils;
+import tw.tib.financisto.utils.Utils;
 import tw.tib.financisto.view.AttributeView;
 import tw.tib.financisto.view.AttributeViewFactory;
 import tw.tib.financisto.widget.RateLayoutView;
@@ -65,6 +67,9 @@ import static tw.tib.financisto.utils.Utils.text;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public abstract class AbstractTransactionActivity extends AbstractActivity implements CategorySelector.CategorySelectorListener {
 
@@ -124,6 +129,7 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 	protected boolean isShowTakePicture;
 	protected boolean isShowIsCCardPayment;
 	protected boolean isOpenCalculatorForTemplates;
+	protected boolean isShowAccountBalanceOnSelector;
 
 	protected boolean isShowPayee = true;
 //    protected AutoCompleteTextView payeeText;
@@ -133,6 +139,8 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 
 	protected DateFormat df;
 	protected DateFormat tf;
+
+	protected Utils u;
 
 	private QuickActionWidget pickImageActionGrid;
 
@@ -149,6 +157,8 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
+		u = new Utils(this);
+
 		if (MyPreferences.isSecureWindow(this)) {
 			getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
 		}
@@ -160,6 +170,17 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 
 		setContentView(getLayoutId());
 
+		ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.transaction_base), (v, windowInsets) -> {
+			Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+					| WindowInsetsCompat.Type.statusBars()
+					| WindowInsetsCompat.Type.captionBar());
+			var lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+			lp.topMargin = insets.top;
+			lp.bottomMargin = insets.bottom;
+			v.setLayoutParams(lp);
+			return WindowInsetsCompat.CONSUMED;
+		});
+
 		isRememberLastAccount = MyPreferences.isRememberAccount(this);
 		isRememberLastCategory = isRememberLastAccount && MyPreferences.isRememberCategory(this);
 		isRememberLastLocation = isRememberLastCategory && MyPreferences.isRememberLocation(this);
@@ -170,6 +191,7 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 		isShowTakePicture = MyPreferences.isShowTakePicture(this);
 		isShowIsCCardPayment = MyPreferences.isShowIsCCardPayment(this);
 		isOpenCalculatorForTemplates = MyPreferences.isOpenCalculatorForTemplates(this);
+		isShowAccountBalanceOnSelector = MyPreferences.isShowAccountBalanceOnSelector(this);
 
 		categorySelector = new CategorySelector<>(this, db, x);
 		categorySelector.setListener(this);
@@ -202,7 +224,12 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 			accountCursor = db.getAccountsForTransaction(transaction);
 		}
 		startManagingCursor(accountCursor);
-		accountAdapter = TransactionUtils.createAccountAdapter(this, accountCursor);
+		if (isShowAccountBalanceOnSelector) {
+			accountAdapter = TransactionUtils.createAccountBalanceAdapter(this, accountCursor);
+		}
+		else {
+			accountAdapter = TransactionUtils.createAccountAdapter(this, accountCursor);
+		}
 
 		dateTime = Calendar.getInstance();
 		Date date = dateTime.getTime();
@@ -216,7 +243,7 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 		dateText = findViewById(R.id.date);
 		dateText.setText(df.format(date));
 		dateText.setOnClickListener(arg0 -> {
-			if (MyPreferences.isUseTwinDatePicker(this)) {
+			if (MyPreferences.isUseTwinDatePicker(this) && Build.VERSION.SDK_INT >= 22) {
 				DatePickerTwinDialog dpd = DatePickerTwinDialog.newInstance(
 						dateTime.get(Calendar.YEAR),
 						dateTime.get(Calendar.MONTH),
@@ -533,7 +560,7 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 		return selectAccount(accountId, true);
 	}
 
-	protected Account selectAccount(long accountId, boolean selectLast) {
+	abstract protected Account selectAccount(long accountId, boolean selectLast); /* {
 		Account a = db.getAccount(accountId);
 		if (a != null) {
 			accountText.setText(a.title);
@@ -542,7 +569,7 @@ public abstract class AbstractTransactionActivity extends AbstractActivity imple
 		}
 		categorySelector.setSelectedAccount(a);
 		return a;
-	}
+	} */
 
 	protected long getSelectedAccountId() {
 		return selectedAccount != null ? selectedAccount.id : -1;
