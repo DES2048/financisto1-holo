@@ -165,6 +165,8 @@
     <string name="report_by_location_by_period_summary">Transactions report by location and period</string>
     <string name="report_by_project_by_period">By Project / Period</string>
     <string name="report_by_project_by_period_summary">Transactions report by project and period</string>
+    <string name="report_by_account_balance_by_period">By Account Balance / Period</string>
+    <string name="report_by_account_balance_by_period_summary">Account balance report by period</string>
     <string name="max_result_label">Max:</string>
     <string name="min_result_label">Min:</string>
     <string name="mean_result_label">Mean:</string>
@@ -188,9 +190,11 @@
     <string name="period_this_week">This week</string>
     <string name="period_this_month">This month</string>
     <string name="period_this_year">This year</string>
+    <string name="period_this_fiscal_year">This fiscal year</string>
     <string name="period_last_week">Last week</string>
     <string name="period_last_month">Last month</string>
     <string name="period_last_year">Last year</string>
+    <string name="period_last_fiscal_year">Last fiscal year</string>
     <string name="currency_name">Name</string>
     <string name="currency_symbol">Symbol</string>
     <string name="currency_code">Code</string>
@@ -435,6 +439,13 @@
     <string name="report_include_no_filter_summary">Include non classified transactions to reports filters lists (No category, No Project and Unknown Location)</string>
     <string name="report_reference_month">Reference Month</string>
     <string name="report_reference_month_summary">Define the Reference Month that represents the end of the report period</string>
+    <string name="report_aggregate_unit">Aggregate Unit</string>
+    <string name="report_aggregate_unit_summary">Select the aggregate unit of report</string>
+    <string-array name="report_aggregate_unit_entities">
+        <item>Month</item>
+        <item>Year</item>
+        <item>Fiscal year</item>
+    </string-array>
     <string name="report_last_quarter">Last quarter</string>
     <string name="report_last_half_year">Last half year</string>
     <string name="report_last_9_months">Last 9 months</string>
@@ -458,6 +469,7 @@
         <item>2 years</item>
         <item>5 years</item>
         <item>10 years</item>
+        <item>all data</item>
     </string-array>
     <string name="report_reference_currency">Reference Currency</string>
     <string name="report_reference_currency_summary">Define the reference currency to be considered when request data for report charts</string>
@@ -496,6 +508,7 @@
     <string name="transfer_template">Transfer (Template)</string>
     <string name="no_templates">No templates</string>
     <string name="template">Template</string>
+    <string name="new_from_template">New transaction/transfer from template</string>
     <string name="delete_template_confirm">Delete template?</string>
     <string name="save_as_template">Save as template</string>
     <string name="save_as_template_success">Transaction saved as template…</string>
@@ -683,6 +696,9 @@
     <string name="colorize_weekend_date">Colorize weekend date/time</string>
     <string name="colorize_weekend_date_summary">Show dates of Saturday/Sunday in red</string>
 
+    <string name="blotter_show_time_of_day">Show transaction time</string>
+    <string name="blotter_show_time_of_day_summary">Show the time of day transaction recorded</string>
+
     <string name="new_currency">New currency…</string>
     <string name="lock_time">Lock time</string>
     <string name="lock_time_summary">Time to keep main screen active before locking it off</string>
@@ -740,6 +756,7 @@
     <string name="csv_time_required">time field is required</string>
     <string name="csv_time_format_error">time field must in HH:MM:SS format: %1$s</string>
     <string name="csv_amount_required">amount field is required when creating new transaction</string>
+    <string name="csv_to_amount_required">`to amount` field is required when creating new transfer</string>
     <string name="csv_txid_not_found">txid %1$s is not an existing transaction</string>
     <string name="csv_currency_not_found">currency %1$s is invalid</string>
     <string name="csv_account_not_found">account %1$s is invalid</string>
@@ -912,6 +929,7 @@
     <string name="period_this_and_last_week">This and last week</string>
     <string name="period_this_and_last_month">This and last month</string>
     <string name="period_this_and_last_year">This and last year</string>
+    <string name="period_this_and_last_fiscal_year">This and last fiscal year</string>
     <string name="period_custom">Custom</string>
 
     <string name="original_amount">Original Amount</string>
@@ -1026,12 +1044,14 @@
     <string name="go_to_menu_tab">Go to Menu</string>
 
     <!-- SMS stuff >> -->
+    <string name="sms_description">Description of rule</string>
+    <string name="sms_description_hint">Show in list title to help identify; not required</string>
     <string name="sms_sender">Notification Sender / SMS Number</string>
     <string name="sms_tpl_filter_hint">Filter by number or text</string>
     <string name="sms_number_hint">Notification sender app name or SMS sender number, use % to indicate wildcard match</string>
     <string name="sms_tpl">Notification / SMS Template</string>
     <string name="sms_tpl_title">Template (?)</string>
-    <string name="sms_tpl_desc">Placeholders: \n{{p}} - price\n{{a}} - account last digits\n{{c}} - account name\n{{x}} - transfer to account name\n{{e}} - payee title (can\'t contain space)\n{{r}} - project title (can\'t contain space)\n{{t}} - note text (non-greedy)\n{{u}} - note text (greedy)\n{{*}} - any symbols/words</string>
+    <string name="sms_tpl_desc">Placeholders: \n{{p}} - price\n{{a}} - account last digits\n{{c}} - account name\n{{x}} - transfer to account name\n{{f}} - ISO 4217 currency code\n{{e}} - payee title (can\'t contain space)\n{{r}} - project title (can\'t contain space)\n{{t}} - note text (non-greedy)\n{{u}} - note text (greedy)\n{{*}} - any symbols/words</string>
     <string name="sms_tpl_hint">Specify template with placeholders here</string>
     <string name="sms_note_title">Note (?)</string>
     <string name="sms_note_desc">Placeholders: \n{{t}} - note text extracted by template</string>
@@ -1062,6 +1082,7 @@
     <string name="pref_tpl_adding_to_note_title">Saving notification text</string>
     <string name="pref_tpl_adding_to_note">Add notification text to transaction note</string>
     <string name="sms_tpl_list_category_payee_project_name">%1$s, %2$s, %3$s</string>
+    <string name="sms_tpl_error_log">Account not found or cannot parse price for notification template from sender `%1$s`, template `%2$s`, content `%3$s`</string>
 
     <string name="card_issuer_default">Default</string>
     <string name="electronic_payment_type">Payment type</string>
@@ -1152,6 +1173,7 @@
     <string name="export_tx_ids">Export TX ID</string>
     <string name="export_attributes">Export attributes</string>
     <string name="export_running_balance">Export running balance</string>
+    <string name="export_transfer_as_single_line">Export transfer in single line</string>
 
     <string name="transfer_current_balance">Transfer current balance</string>
     <string name="show_transfer_current_balance">Show \'Transfer current balance\'</string>
@@ -1164,5 +1186,13 @@
         <item>Sunday</item>
         <item>Monday</item>
     </string-array>
+
+    <string name="fiscal_year_start">Fiscal year start</string>
+    <string name="fiscal_year_start_summary">First day of fiscal year for period and reports: %s</string>
+
+    <string name="merge_payee_confirm">Confirm merging Payees</string>
+    <string name="merge_payee_message">This will keep payee %1$s, merge transactions from following payees into it, and delete following payees:</string>
+    <string name="merge_payee_message_continue">Continue?</string>
+    <string name="merge_payee_success">Payees successfully merged.</string>
     <string name="scan_qr">Scan QR</string>
 </resources>

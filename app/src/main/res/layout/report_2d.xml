@@ -36,6 +36,11 @@
             android:src="@android:drawable/ic_media_next" />
 
         <ImageButton
+            android:id="@+id/bt_view_transactions"
+            style="@style/BottomBarButton"
+            android:src="@android:drawable/ic_menu_search" />
+
+        <ImageButton
             android:id="@+id/bt_preferences"
             style="@style/BottomBarButton"
             android:src="@android:drawable/ic_menu_preferences"
@@ -118,6 +123,7 @@
                 android:text="@string/report_init_res" />
 
             <TextView
+                android:id="@+id/report_sum_label"
                 android:layout_width="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center|left"

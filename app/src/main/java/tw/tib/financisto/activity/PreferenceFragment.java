@@ -4,12 +4,14 @@ import static android.app.Activity.RESULT_OK;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.app.DatePickerDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +31,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+
+import java.util.Calendar;
 
 import tw.tib.financisto.R;
 import tw.tib.financisto.export.Export;
@@ -54,7 +58,6 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
 
     Preference pGoogleDriveSignIn;
     Preference pGoogleDriveSignOut;
-    Preference pGoogleDriveBackupFolder;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
@@ -80,6 +83,11 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
         pLocale.setOnPreferenceChangeListener((preference, newValue) -> {
             String locale = (String) newValue;
             MyPreferences.switchLocale(context, locale);
+            return true;
+        });
+        Preference pFiscalYearStart = preferenceScreen.findPreference("fiscal_year_start");
+        pFiscalYearStart.setOnPreferenceClickListener(arg0 -> {
+            selectFiscalYearStart();
             return true;
         });
         Preference pNewTransactionShortcut = preferenceScreen.findPreference("shortcut_new_transaction");
@@ -131,7 +139,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
             signOutGoogleAccount();
             return true;
         });
-        pGoogleDriveBackupFolder = preferenceScreen.findPreference("google_drive_backup_folder");
+        Preference pGoogleDriveBackupFolder = preferenceScreen.findPreference("google_drive_backup_folder");
         pGoogleDriveBackupFolder.setOnPreferenceChangeListener((Preference preference, Object newValue) -> {
             new GoogleDriveAuthorizeFolderTask(getActivity(),
                     (String) newValue,
@@ -149,6 +157,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
         }
         linkToDropbox();
         setCurrentDatabaseBackupFolder();
+        setFiscalYearStart();
         enableOpenExchangeApp();
         selectAccount();
     }
@@ -192,7 +201,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private Account getSelectedAccount() {
-        String accountName = MyPreferences.getGoogleDriveAccount(getContext());
+        String accountName = MyPreferences.getGoogleDriveAccount();
         if (accountName != null) {
             AccountManager accountManager = AccountManager.get(getContext());
             Account[] accounts = accountManager.getAccountsByType("com.google");
@@ -206,7 +215,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void linkToDropbox() {
-        boolean dropboxAuthorized = MyPreferences.isDropboxAuthorized(getContext());
+        boolean dropboxAuthorized = MyPreferences.isDropboxAuthorized();
         PreferenceScreen preferenceScreen = getPreferenceScreen();
         preferenceScreen.findPreference("dropbox_authorize").setEnabled(!dropboxAuthorized);
         preferenceScreen.findPreference("dropbox_unlink").setEnabled(dropboxAuthorized);
@@ -221,7 +230,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
     }
 
     private void enableOpenExchangeApp() {
-        pOpenExchangeRatesAppId.setEnabled(MyPreferences.isOpenExchangeRatesProviderSelected(getContext()));
+        pOpenExchangeRatesAppId.setEnabled(MyPreferences.isOpenExchangeRatesProviderSelected());
     }
 
     private String getDatabaseBackupFolder() {
@@ -232,6 +241,32 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
         Preference pDatabaseBackupFolder = getPreferenceScreen().findPreference("database_backup_folder");
         String summary = getString(R.string.database_backup_folder_summary, Uri.parse(getDatabaseBackupFolder()).getLastPathSegment());
         pDatabaseBackupFolder.setSummary(summary);
+    }
+
+    private void selectFiscalYearStart() {
+        Calendar cal = Calendar.getInstance();
+        int fiscalYearStart = MyPreferences.getFiscalYearStart();
+        DatePickerDialog dialog = new DatePickerDialog(getContext(),
+                (view, year, monthOfYear, dayOfMonth) -> {
+                    MyPreferences.setFiscalYearStart(monthOfYear, dayOfMonth);
+                    setFiscalYearStart();
+                },
+                cal.get(Calendar.YEAR),
+                fiscalYearStart / 100,
+                fiscalYearStart % 100
+        );
+        dialog.show();
+    }
+
+    private void setFiscalYearStart() {
+        Preference pFiscalYearStart = getPreferenceScreen().findPreference("fiscal_year_start");
+        int fiscalYearStart = MyPreferences.getFiscalYearStart();
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.MONTH, fiscalYearStart / 100);
+        cal.set(Calendar.DATE, fiscalYearStart % 100);
+        String summary = getString(R.string.fiscal_year_start_summary, DateUtils.formatDateTime(getContext(), cal.getTimeInMillis(),
+                DateUtils.FORMAT_SHOW_DATE|DateUtils.FORMAT_ABBREV_MONTH|DateUtils.FORMAT_NO_YEAR));
+        pFiscalYearStart.setSummary(summary);
     }
 
     @Override
@@ -247,7 +282,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
                         Log.i("Financisto", "backup folder uri: " + backupFolderUri.toString());
                         getContext().getContentResolver().takePersistableUriPermission(backupFolderUri,
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                        MyPreferences.setDatabaseBackupFolder(context, backupFolderUri.toString());
+                        MyPreferences.setDatabaseBackupFolder(backupFolderUri.toString());
                         setCurrentDatabaseBackupFolder();
                     }
                     else {
@@ -258,7 +293,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
                 case CHOOSE_ACCOUNT:
                     GoogleSignInAccount account = GoogleSignIn.getSignedInAccountFromIntent(data).getResult();
                     new GoogleDriveAuthorizeFolderTask(getActivity(),
-                            MyPreferences.getGoogleDriveBackupFolder(context),
+                            MyPreferences.getGoogleDriveBackupFolder(),
                             REQUEST_AUTHORIZATION).execute();
                     String signedInAs = getString(R.string.google_drive_signed_in_as,
                             account.getEmail());

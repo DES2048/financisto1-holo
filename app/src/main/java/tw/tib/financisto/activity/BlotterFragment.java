@@ -2,6 +2,7 @@ package tw.tib.financisto.activity;
 
 import static android.app.Activity.RESULT_FIRST_USER;
 import static android.app.Activity.RESULT_OK;
+import static android.content.Context.MODE_PRIVATE;
 
 import static java.lang.String.format;
 
@@ -58,6 +59,7 @@ import java.util.regex.Pattern;
 
 import greendroid.widget.QuickActionGrid;
 import greendroid.widget.QuickActionWidget;
+import tw.tib.financisto.Application;
 import tw.tib.financisto.R;
 import tw.tib.financisto.adapter.BlotterListAdapter;
 import tw.tib.financisto.adapter.TransactionsListAdapter;
@@ -66,8 +68,8 @@ import tw.tib.financisto.blotter.BlotterFilter;
 import tw.tib.financisto.blotter.BlotterTotalCalculationTask;
 import tw.tib.financisto.blotter.TotalCalculationTask;
 import tw.tib.financisto.dialog.TransactionInfoDialog;
-import tw.tib.financisto.filter.Criteria;
-import tw.tib.financisto.filter.DateTimeCriteria;
+import tw.tib.financisto.filter.Criterion;
+import tw.tib.financisto.filter.DateTimeCriterion;
 import tw.tib.financisto.filter.WhereFilter;
 import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.model.Account;
@@ -86,7 +88,7 @@ import tw.tib.orb.EntityManager;
 
 public class BlotterFragment extends AbstractListFragment<Cursor> implements BlotterOperations.BlotterOperationsCallback {
     private static final String TAG = "BlotterFragment";
-    public static final String SAVE_FILTER = "saveFilter";
+    public static final String MAIN_BLOTTER = "mainBlotter";
     public static final String EXTRA_FILTER_ACCOUNTS = "filterAccounts";
     public static final String GO_TO_TRANSACTION = "goToTransaction";
 
@@ -120,7 +122,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
 
     private TotalCalculationTask calculationTask;
 
-    protected boolean saveFilter;
+    protected boolean mainBlotter;
     protected WhereFilter blotterFilter = WhereFilter.empty();
 
     protected static final long BEFORE_INITIAL_LOAD = -1;
@@ -168,9 +170,9 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         super(R.layout.blotter);
     }
 
-    public BlotterFragment(boolean saveFilter) {
+    public BlotterFragment(boolean mainBlotter) {
         super(R.layout.blotter);
-        this.saveFilter = saveFilter;
+        this.mainBlotter = mainBlotter;
     }
 
     protected void calculateTotals(WhereFilter filter) {
@@ -189,6 +191,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         if (context == null) {
             return null;
         }
+        context = context.getApplicationContext();
         if (filter.getAccountId() > 0) {
             return new AccountTotalCalculationTask(context, db, filter, totalText);
         } else {
@@ -210,9 +213,24 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        Bundle args = getArguments();
+        if (args != null) {
+            blotterFilter = WhereFilter.fromBundle(args);
+            isAccountBlotter = args.getBoolean(BlotterFilterActivity.IS_ACCOUNT_FILTER, false);
+        }
+        if (savedInstanceState != null) {
+            mainBlotter = savedInstanceState.getBoolean(MAIN_BLOTTER);
+            blotterFilter = WhereFilter.fromBundle(savedInstanceState);
+        }
+        if (mainBlotter && blotterFilter.isEmpty()) {
+            blotterFilter = WhereFilter.fromSharedPreferences(getContext().getSharedPreferences(this.getClass().getName(), 0));
+        }
+        // onViewCreated will create and start loader, which will use blotterFilter prepared above
         super.onViewCreated(view, savedInstanceState);
 
-        if (!this.saveFilter) {
+        if (!mainBlotter) {
+            // non-main blotter is contained in BlotterActivity, with fragment container layout
+            // having a toolbar
             var toolbar = (Toolbar) view.findViewById(R.id.toolbar);
             if (toolbar != null) {
                 toolbar.setVisibility(View.VISIBLE);
@@ -262,12 +280,12 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
 
         getActivity().getOnBackPressedDispatcher().addCallback(backCallback);
 
-        showAllBlotterButtons = !MyPreferences.isCollapseBlotterButtons(getContext());
+        showAllBlotterButtons = !MyPreferences.isCollapseBlotterButtons();
 
-        isQuickMenuEnabledForTransaction = MyPreferences.isQuickMenuEnabledForTransaction(getContext());
-        isQuickMenuShowAdditionalTransactionStatus = MyPreferences.isQuickMenuShowAdditionalTransactionStatus(getContext());
-        isQuickMenuShowDuplicateKeepTime = MyPreferences.isQuickMenuShowDuplicateKeepTime(getContext());
-        isQuickMenuShowDuplicateKeepDateTime = MyPreferences.isQuickMenuShowDuplicateKeepDateTime(getContext());
+        isQuickMenuEnabledForTransaction = MyPreferences.isQuickMenuEnabledForTransaction();
+        isQuickMenuShowAdditionalTransactionStatus = MyPreferences.isQuickMenuShowAdditionalTransactionStatus();
+        isQuickMenuShowDuplicateKeepTime = MyPreferences.isQuickMenuShowDuplicateKeepTime();
+        isQuickMenuShowDuplicateKeepDateTime = MyPreferences.isQuickMenuShowDuplicateKeepDateTime();
 
         if (showAllBlotterButtons) {
             bTransfer = view.findViewById(R.id.bTransfer);
@@ -296,7 +314,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         totalText = view.findViewById(R.id.total);
         if (totalText != null) {
             totalText.setOnClickListener((v) -> {
-                if (MyPreferences.isBlurBalances(getContext())) {
+                if (MyPreferences.isBlurBalances()) {
                     if (totalText.getPaint().getMaskFilter() != null) {
                         totalText.getPaint().setMaskFilter(null);
                         totalText.invalidate();
@@ -317,18 +335,6 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         emptyText = view.findViewById(android.R.id.empty);
         period = view.findViewById(R.id.period);
         progressBar = view.findViewById(android.R.id.progress);
-
-        Bundle args = getArguments();
-        if (args != null) {
-            blotterFilter = WhereFilter.fromBundle(args);
-            isAccountBlotter = args.getBoolean(BlotterFilterActivity.IS_ACCOUNT_FILTER, false);
-        }
-        if (savedInstanceState != null) {
-            blotterFilter = WhereFilter.fromBundle(savedInstanceState);
-        }
-        if (saveFilter && blotterFilter.isEmpty()) {
-            blotterFilter = WhereFilter.fromSharedPreferences(getContext().getSharedPreferences(this.getClass().getName(), 0));
-        }
 
         bSearch = view.findViewById(R.id.bSearch);
         if (bSearch != null) {
@@ -378,69 +384,69 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                         while (blotterFilter.remove(BlotterFilter.ORIGINAL_FROM_AMOUNT) != null);
 
                         if (!text.isEmpty()) {
-                            Criteria amount = null;
+                            Criterion amount = null;
                             Matcher m = amountSearchPattern.matcher(text);
                             if (m.matches()) {
                                 if (m.group(1) == null && m.group(3) == null) {
                                     // 123.45
                                     String val = Double.toString(Math.floor(Double.parseDouble(m.group(2)) * 100));
-                                    amount = Criteria.or(
-                                            Criteria.eq(BlotterFilter.FROM_AMOUNT, val),
-                                            Criteria.eq(BlotterFilter.FROM_AMOUNT, "-" + val),
-                                            Criteria.eq(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
-                                            Criteria.eq(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val));
+                                    amount = Criterion.or(
+                                            Criterion.eq(BlotterFilter.FROM_AMOUNT, val),
+                                            Criterion.eq(BlotterFilter.FROM_AMOUNT, "-" + val),
+                                            Criterion.eq(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
+                                            Criterion.eq(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val));
                                 }
                                 else if (m.group(3) == null) {
                                     // >123.45, <123.45
                                     String val = Double.toString(Math.floor(Double.parseDouble(m.group(2)) * 100));
                                     if (m.group(1).equals("<")) {
-                                        amount = Criteria.or(
-                                                Criteria.and(
-                                                        Criteria.lt(BlotterFilter.FROM_AMOUNT, val),
-                                                        Criteria.gt(BlotterFilter.FROM_AMOUNT, "0")),
-                                                Criteria.and(
-                                                        Criteria.gt(BlotterFilter.FROM_AMOUNT, "-" + val),
-                                                        Criteria.lt(BlotterFilter.FROM_AMOUNT, "0")),
-                                                Criteria.and(
-                                                        Criteria.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
-                                                        Criteria.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "0")),
-                                                Criteria.and(
-                                                        Criteria.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val),
-                                                        Criteria.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "0")));
+                                        amount = Criterion.or(
+                                                Criterion.and(
+                                                        Criterion.lt(BlotterFilter.FROM_AMOUNT, val),
+                                                        Criterion.gt(BlotterFilter.FROM_AMOUNT, "0")),
+                                                Criterion.and(
+                                                        Criterion.gt(BlotterFilter.FROM_AMOUNT, "-" + val),
+                                                        Criterion.lt(BlotterFilter.FROM_AMOUNT, "0")),
+                                                Criterion.and(
+                                                        Criterion.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
+                                                        Criterion.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "0")),
+                                                Criterion.and(
+                                                        Criterion.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val),
+                                                        Criterion.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "0")));
                                     }
                                     else if (m.group(1).equals(">")) {
-                                        amount = Criteria.or(
-                                                Criteria.gt(BlotterFilter.FROM_AMOUNT, val),
-                                                Criteria.lt(BlotterFilter.FROM_AMOUNT, "-" + val),
-                                                Criteria.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
-                                                Criteria.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val));
+                                        amount = Criterion.or(
+                                                Criterion.gt(BlotterFilter.FROM_AMOUNT, val),
+                                                Criterion.lt(BlotterFilter.FROM_AMOUNT, "-" + val),
+                                                Criterion.gt(BlotterFilter.ORIGINAL_FROM_AMOUNT, val),
+                                                Criterion.lt(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val));
                                     }
                                 }
                                 else if (m.group(1) == null) {
                                     // 100~900
                                     String val2 = Double.toString(Math.floor(Double.parseDouble(m.group(2)) * 100));
                                     String val3 = Double.toString(Math.floor(Double.parseDouble(m.group(3)) * 100));
-                                    amount = Criteria.or(
-                                            Criteria.btw(BlotterFilter.FROM_AMOUNT, val2, val3),
-                                            Criteria.btw(BlotterFilter.FROM_AMOUNT, "-" + val3, "-" + val2),
-                                            Criteria.btw(BlotterFilter.ORIGINAL_FROM_AMOUNT, val2, val3),
-                                            Criteria.btw(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val3, "-" + val2));
+                                    amount = Criterion.or(
+                                            Criterion.btw(BlotterFilter.FROM_AMOUNT, val2, val3),
+                                            Criterion.btw(BlotterFilter.FROM_AMOUNT, "-" + val3, "-" + val2),
+                                            Criterion.btw(BlotterFilter.ORIGINAL_FROM_AMOUNT, val2, val3),
+                                            Criterion.btw(BlotterFilter.ORIGINAL_FROM_AMOUNT, "-" + val3, "-" + val2));
                                 }
                             }
                             String likePattern = format("%%%s%%", text);
                             if (amount == null) {
-                                blotterFilter.eq(Criteria.or(
-                                        Criteria.like(BlotterFilter.NOTE, likePattern),
-                                        Criteria.like(BlotterFilter.PAYEE, likePattern),
-                                        Criteria.like(BlotterFilter.CATEGORY_NAME, likePattern)
+                                blotterFilter.eq(Criterion.or(
+                                        Criterion.like(BlotterFilter.NOTE, likePattern),
+                                        Criterion.like(BlotterFilter.PAYEE, likePattern),
+                                        Criterion.like(BlotterFilter.CATEGORY_NAME, likePattern)
                                 ));
                             }
                             else {
-                                blotterFilter.eq(Criteria.or(
+                                blotterFilter.eq(Criterion.or(
                                         amount,
-                                        Criteria.like(BlotterFilter.NOTE, likePattern),
-                                        Criteria.like(BlotterFilter.PAYEE, likePattern),
-                                        Criteria.like(BlotterFilter.CATEGORY_NAME, likePattern)
+                                        Criterion.like(BlotterFilter.NOTE, likePattern),
+                                        Criterion.like(BlotterFilter.PAYEE, likePattern),
+                                        Criterion.like(BlotterFilter.CATEGORY_NAME, likePattern)
                                 ));
                             }
 
@@ -660,6 +666,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         blotterFilter.toBundle(outState);
+        outState.putBoolean(MAIN_BLOTTER, mainBlotter);
     }
 
     protected void createFromTemplate() {
@@ -705,7 +712,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                     t = db.getTransaction(id);
                     fromAccount = db.getAccount(t.fromAccountId);
                     Intent intent = new Intent(getContext(), BlotterActivity.class);
-                    Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(fromAccount.id))
+                    Criterion.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(fromAccount.id))
                             .toIntent(fromAccount.title, intent);
                     intent.putExtra(BlotterFilterActivity.IS_ACCOUNT_FILTER, true);
                     intent.putExtra(GO_TO_TRANSACTION, id);
@@ -813,7 +820,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                                 t.toAmount = -t.fromAmount;
                             }
 
-                            t.toAmount = Utils.roundAmount(getContext(), toAccount.currency, t.toAmount);
+                            t.toAmount = Utils.roundAmount(toAccount.currency, t.toAmount);
                         }
 
                         t.originalFromAmount = 0;
@@ -829,10 +836,10 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                             t.fromAmount = tempAmount;
                         }
 
-                        if (!MyPreferences.isShowPayeeInTransfers(getContext())) {
+                        if (!MyPreferences.isShowPayeeInTransfers()) {
                             t.payeeId = 0;
                         }
-                        if (!MyPreferences.isShowCategoryInTransferScreen(getContext())) {
+                        if (!MyPreferences.isShowCategoryInTransferScreen()) {
                             t.categoryId = 0;
                         }
                     }
@@ -847,15 +854,15 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         return false;
     }
 
-    private long duplicateTransactionKeepTime(long id) {
+    protected long duplicateTransactionKeepTime(long id) {
         return duplicateTransaction(id, 1, KeepTime.KEEP_TIME);
     }
 
-    private long duplicateTransactionKeepDateTime(long id) {
+    protected long duplicateTransactionKeepDateTime(long id) {
         return duplicateTransaction(id, 1, KeepTime.KEEP_DATE_TIME);
     }
 
-    private long duplicateTransaction(long id, int multiplier) {
+    protected long duplicateTransaction(long id, int multiplier) {
         return duplicateTransaction(id, multiplier, KeepTime.NONE);
     }
 
@@ -865,7 +872,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         KEEP_DATE_TIME,
     }
 
-    private long duplicateTransaction(long id, int multiplier, KeepTime keepTime) {
+    protected long duplicateTransaction(long id, int multiplier, KeepTime keepTime) {
         long newId;
         String toastText;
         if (keepTime == KeepTime.KEEP_TIME) {
@@ -921,7 +928,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     @Override
     protected Cursor loadInBackground() {
         Cursor c;
-        blotterFilter.recalculatePeriod(getContext());
+        blotterFilter.recalculatePeriod();
         WhereFilter blotterFilterCopy = WhereFilter.copyOf(blotterFilter);
 
         new Handler(Looper.getMainLooper()).post(()-> {
@@ -951,14 +958,14 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     }
 
     @Override
-    protected ListAdapter createAdapter(Cursor cursor) {
+    protected ListAdapter createAdapter(Context context, Cursor cursor) {
         ListAdapter a;
         long t1 = System.currentTimeMillis();
         long accountId = blotterFilter.getAccountId();
         if (accountId != -1) {
-            a = new TransactionsListAdapter(getContext(), db, cursor);
+            a = new TransactionsListAdapter(context, db, cursor);
         } else {
-            a = new BlotterListAdapter(getContext(), db, cursor);
+            a = new BlotterListAdapter(context, db, cursor);
         }
         if (a.getCount() == 0) {
             emptyText.setVisibility(View.VISIBLE);
@@ -972,7 +979,7 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
     }
 
     protected void updatePeriodDisplay() {
-        DateTimeCriteria c = blotterFilter.getDateTime();
+        DateTimeCriterion c = blotterFilter.getDateTime();
         if (c != null) {
             period.setVisibility(View.VISIBLE);
             period.setText(DateUtils.formatDateRange(getContext(), c.getLongValue1(), c.getLongValue2(),
@@ -1038,12 +1045,10 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
             } else if (resultCode == RESULT_OK) {
                 blotterFilter = WhereFilter.fromIntent(data);
             }
-            if (saveFilter) {
-                saveFilter();
-            }
+            saveFilter();
             applyFilter();
         } else if (resultCode == RESULT_OK && requestCode == NEW_TRANSACTION_FROM_TEMPLATE_REQUEST) {
-            createTransactionFromTemplate(data);
+            // do nothing - transaction is created in templacte list activity
         }
         if (resultCode == RESULT_OK || resultCode == RESULT_FIRST_USER) {
             Log.d(getClass().getSimpleName(), "RESULT_OK || RESULT_FIRST_USER");
@@ -1051,20 +1056,8 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         recreateCursor();
     }
 
-    private void createTransactionFromTemplate(Intent data) {
-        long templateId = data.getLongExtra(SelectTemplateFragment.TEMPLATE_ID, -1);
-        int multiplier = data.getIntExtra(SelectTemplateFragment.MULTIPLIER, 1);
-        boolean edit = data.getBooleanExtra(SelectTemplateFragment.EDIT_AFTER_CREATION, false);
-        if (templateId > 0) {
-            long id = duplicateTransaction(templateId, multiplier);
-            Transaction t = db.getTransaction(id);
-            if (t.fromAmount == 0 || edit) {
-                new BlotterOperations(getContext(), this, db, id).asNewFromTemplate().editTransaction();
-            }
-        }
-    }
-
     private void saveFilter() {
+        if (!mainBlotter) return;
         SharedPreferences preferences = getContext().getSharedPreferences(this.getClass().getName(), 0);
         blotterFilter.toSharedPreferences(preferences);
     }
@@ -1134,15 +1127,17 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
         super.onResume();
         Log.d(TAG, "onResume");
         if (lastTxId != BEFORE_INITIAL_LOAD) {
-            long t1 = System.nanoTime();
-            long currentLastTxId = db.getLastTransactionId();
-            Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + format("%,d", System.nanoTime() - t1) + " ns");
-            long currentDay = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
-            if (currentLastTxId != lastTxId || currentDay != lastDay) {
-                Log.d(TAG, "lastTxId " + lastTxId + " != " + currentLastTxId +
-                        " || lastDay " + lastDay + " != " + currentDay + ", recreating cursor");
-                recreateCursor();
-            }
+            Application.getExecutor().execute(() -> {
+                long t1 = System.nanoTime();
+                long currentLastTxId = db.getLastTransactionId();
+                Log.d(TAG, "getLastTransactionId() = " + lastTxId + ", " + format("%,d", System.nanoTime() - t1) + " ns");
+                long currentDay = Calendar.getInstance().get(Calendar.DAY_OF_YEAR);
+                if (currentLastTxId != lastTxId || currentDay != lastDay) {
+                    Log.d(TAG, "lastTxId " + lastTxId + " != " + currentLastTxId +
+                            " || lastDay " + lastDay + " != " + currentDay + ", recreating cursor");
+                    new Handler(Looper.getMainLooper()).post(this::recreateCursor);
+                }
+            });
         }
 
         if (PinProtection.isUnlocked()) {
@@ -1154,5 +1149,14 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
             Log.d(this.getClass().getSimpleName(), "onResume NOT isUnlocked, hide list");
             getListView().setVisibility(View.INVISIBLE);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (calculationTask != null) {
+            calculationTask.stop();
+            calculationTask.cancel(true);
+        }
+        super.onDestroy();
     }
 }

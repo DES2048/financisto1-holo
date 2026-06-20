@@ -40,6 +40,8 @@ import tw.tib.financisto.utils.PinProtection;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
+    public static final String GO_TO_SCREEN = "GO_TO_SCREEN";
+
     private GreenRobotBus greenRobotBus;
     HashMap<String, TabLayout.Tab> tabs;
     private TabLayout tabLayout;
@@ -54,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (MyPreferences.isSecureWindow(this)) {
+        if (MyPreferences.isSecureWindow()) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
 
@@ -138,7 +140,14 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }).attach();
 
-        viewPager.setCurrentItem(MyPreferences.getStartupScreen(this).ordinal(), false);
+        var intent = getIntent();
+        if (intent != null) {
+            int screen = intent.getIntExtra(GO_TO_SCREEN, MyPreferences.getStartupScreen().ordinal());
+            viewPager.setCurrentItem(screen, false);
+        }
+        else {
+            viewPager.setCurrentItem(MyPreferences.getStartupScreen().ordinal(), false);
+        }
     }
 
     @Override
@@ -182,15 +191,15 @@ public class MainActivity extends AppCompatActivity {
                 x.endTransaction();
             }
             t2 = System.currentTimeMillis();
-            if (MyPreferences.shouldUpdateHomeCurrency(this)) {
+            if (MyPreferences.shouldUpdateHomeCurrency()) {
                 db.setDefaultHomeCurrency();
             }
             CurrencyCache.initialize(db);
             t3 = System.currentTimeMillis();
-            if (MyPreferences.shouldRebuildRunningBalance(this)) {
+            if (MyPreferences.shouldRebuildRunningBalance()) {
                 db.rebuildRunningBalances();
             }
-            if (MyPreferences.shouldUpdateAccountsLastTransactionDate(this)) {
+            if (MyPreferences.shouldUpdateAccountsLastTransactionDate()) {
                 db.updateAccountsLastTransactionDate();
             }
         } finally {

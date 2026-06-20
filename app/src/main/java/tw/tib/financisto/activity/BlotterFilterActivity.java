@@ -20,18 +20,20 @@ import tw.tib.financisto.R;
 import tw.tib.financisto.datetime.DateUtils;
 import tw.tib.financisto.datetime.Period;
 import tw.tib.financisto.blotter.BlotterFilter;
-import tw.tib.financisto.filter.Criteria;
-import tw.tib.financisto.filter.DateTimeCriteria;
+import tw.tib.financisto.filter.Criterion;
+import tw.tib.financisto.filter.DateTimeCriterion;
 import tw.tib.financisto.filter.WhereFilter;
 import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.Currency;
 import tw.tib.financisto.model.MultiChoiceItem;
 import tw.tib.financisto.model.TransactionStatus;
-import tw.tib.financisto.utils.EnumUtils;
 import tw.tib.financisto.utils.TransactionUtils;
 
 import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 
 import static tw.tib.financisto.blotter.BlotterFilter.FROM_ACCOUNT_ID;
@@ -107,7 +109,7 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 		bNoFilter.setOnClickListener(v -> {
 			if (isAccountFilter()) {
 				Intent data = new Intent();
-				Criteria.eq(FROM_ACCOUNT_ID, String.valueOf(accountId)).toIntent(filter.getTitle(), data);
+				Criterion.eq(FROM_ACCOUNT_ID, String.valueOf(accountId)).toIntent(filter.getTitle(), data);
 				setResult(RESULT_OK, data);
 				finish();
 			} else {
@@ -159,7 +161,7 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 	}
 
 	private void updatePeriodFromFilter() {
-		DateTimeCriteria c = (DateTimeCriteria)filter.get(BlotterFilter.DATETIME);
+		DateTimeCriterion c = (DateTimeCriterion)filter.get(BlotterFilter.DATETIME);
 		if (c != null) {
 			Period p = c.getPeriod();
 			if (p.isCustom()) {
@@ -188,7 +190,7 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 	}
 
 	private void updateNoteFromFilter() {
-		Criteria c = filter.get(BlotterFilter.NOTE);
+		Criterion c = filter.get(BlotterFilter.NOTE);
 		if (c != null) {
 			String v = c.getStringValue();
 			note.setText(String.format(getString(R.string.note_text_containing_value),
@@ -201,10 +203,13 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 	}
 
 	private void updateStatusFromFilter() {
-		Criteria c = filter.get(BlotterFilter.STATUS);
+		Criterion c = filter.get(BlotterFilter.STATUS);
 		if (c != null) {
-			TransactionStatus s = TransactionStatus.valueOf(c.getStringValue());
-			status.setText(getString(s.titleId));
+			var statusTitle = new ArrayList<String>();
+			for (String state : c.getValues()) {
+				statusTitle.add(getString(TransactionStatus.valueOf(state).titleId));
+			}
+			status.setText(String.join(", ", statusTitle));
 			showMinusButton(status);
 		} else {
 			status.setText(R.string.no_filter);
@@ -216,118 +221,121 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 	protected void onClick(View v, int id) {
 		super.onClick(v, id);
 		Intent intent;
-		switch (id) {
-			case R.id.period:
-				intent = new Intent(this, DateFilterActivity.class);
-				filter.toIntent(intent);
-				if (isPlannerFilter) {
-					intent.putExtra(DateFilterActivity.EXTRA_FILTER_DONT_SHOW_NO_FILTER, true);
-					intent.putExtra(DateFilterActivity.EXTRA_FILTER_SHOW_PLANNER, true);
+		if (id == R.id.period) {
+			intent = new Intent(this, DateFilterActivity.class);
+			filter.toIntent(intent);
+			if (isPlannerFilter) {
+				intent.putExtra(DateFilterActivity.EXTRA_FILTER_DONT_SHOW_NO_FILTER, true);
+				intent.putExtra(DateFilterActivity.EXTRA_FILTER_SHOW_PLANNER, true);
+			}
+			startActivityForResult(intent, REQUEST_DATE_FILTER);
+		} else if (id == R.id.period_clear) {
+			clear(BlotterFilter.DATETIME, period);
+		} else if (id == R.id.account) {
+			if (isAccountFilter()) {
+				return;
+			}
+			Cursor cursor = db.getAllAccounts();
+			startManagingCursor(cursor);
+			ListAdapter adapter = TransactionUtils.createAccountAdapter(this, cursor);
+			Criterion c = filter.get(FROM_ACCOUNT_ID);
+			long selectedId = c != null ? c.getLongValue1() : -1;
+			x.select(this, R.id.account, R.string.account, cursor, adapter, "_id", selectedId);
+		} else if (id == R.id.account_clear) {
+			if (isAccountFilter()) {
+				return;
+			}
+			clear(FROM_ACCOUNT_ID, account);
+		} else if (id == R.id.currency) {
+			Cursor cursor = db.getAllCurrencies("name");
+			startManagingCursor(cursor);
+			ListAdapter adapter = TransactionUtils.createCurrencyAdapter(this, cursor);
+			Criterion c = filter.get(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID);
+			long selectedId = c != null ? c.getLongValue1() : -1;
+			x.select(this, R.id.currency, R.string.currency, cursor, adapter, "_id", selectedId);
+		} else if (id == R.id.currency_clear) {
+			clear(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID, currency);
+		} else if (id ==  R.id.note) {
+			intent = new Intent(this, NoteFilterActivity.class);
+			filter.toIntent(intent);
+			startActivityForResult(intent, REQUEST_NOTE_FILTER);
+		} else if (id == R.id.note_clear) {
+			clear(BlotterFilter.NOTE, note);
+		} else if (id == R.id.sort_order) {
+			ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, sortBlotterEntries);
+			int selectedId = BlotterFilter.SORT_OLDER_TO_NEWER.equals(filter.getSortOrder()) ? 1 : 0;
+			x.selectPosition(this, R.id.sort_order, R.string.sort_order, adapter, selectedId);
+		} else if (id == R.id.sort_order_clear) {
+			filter.resetSort();
+			filter.desc(BlotterFilter.DATETIME);
+			updateSortOrderFromFilter();
+		} else if (id == R.id.status) {
+			var items = new ArrayList<TransactionStatusMultiChoiceItem>();
+			var selected = new HashSet<String>();
+			Criterion c = filter.get(BlotterFilter.STATUS);
+			if (c != null) {
+				selected.addAll(Arrays.asList(c.getValues()));
+			}
+			for (var status : statuses) {
+				var item = new TransactionStatusMultiChoiceItem(status, getString(status.getTitleId()));
+				if (selected.contains(status.name())) {
+					item.setChecked(true);
 				}
-				startActivityForResult(intent, REQUEST_DATE_FILTER);
-				break;
-			case R.id.period_clear:
-				clear(BlotterFilter.DATETIME, period);
-				break;
-			case R.id.account: {
-				if (isAccountFilter()) {
-					return;
-				}
-				Cursor cursor = db.getAllAccounts();
-				startManagingCursor(cursor);
-				ListAdapter adapter = TransactionUtils.createAccountAdapter(this, cursor);
-				Criteria c = filter.get(FROM_ACCOUNT_ID);
-				long selectedId = c != null ? c.getLongValue1() : -1;
-				x.select(this, R.id.account, R.string.account, cursor, adapter, "_id", selectedId);
-			} break;
-			case R.id.account_clear:
-				if (isAccountFilter()) {
-					return;
-				}
-				clear(FROM_ACCOUNT_ID, account);
-				break;
-			case R.id.currency: {
-				Cursor cursor = db.getAllCurrencies("name");
-				startManagingCursor(cursor);
-				ListAdapter adapter = TransactionUtils.createCurrencyAdapter(this, cursor);
-				Criteria c = filter.get(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID);
-				long selectedId = c != null ? c.getLongValue1() : -1;
-				x.select(this, R.id.currency, R.string.currency, cursor, adapter, "_id", selectedId);
-			} break;
-			case R.id.currency_clear:
-				clear(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID, currency);
-				break;
-			case R.id.note:
-				intent = new Intent(this, NoteFilterActivity.class);
-				filter.toIntent(intent);
-				startActivityForResult(intent, REQUEST_NOTE_FILTER);
-				break;
-			case R.id.note_clear:
-				clear(BlotterFilter.NOTE, note);
-				break;
-			case R.id.sort_order: {
-				ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, sortBlotterEntries);
-				int selectedId = BlotterFilter.SORT_OLDER_TO_NEWER.equals(filter.getSortOrder()) ? 1 : 0;
-				x.selectPosition(this, R.id.sort_order, R.string.sort_order, adapter, selectedId);
-			} break;
-			case R.id.sort_order_clear:
-				filter.resetSort();
-				filter.desc(BlotterFilter.DATETIME);
-				updateSortOrderFromFilter();
-				break;
-			case R.id.status: {
-				ArrayAdapter<String> adapter = EnumUtils.createDropDownAdapter(this, statuses);
-				Criteria c = filter.get(BlotterFilter.STATUS);
-				int selectedPos = c != null ? TransactionStatus.valueOf(c.getStringValue()).ordinal() : -1;
-				x.selectPosition(this, R.id.status, R.string.transaction_status, adapter, selectedPos);
-			} break;
-			case R.id.status_clear:
-				clear(BlotterFilter.STATUS, status);
-				break;
+				items.add(item);
+			}
+			x.selectMultiChoice(this, R.id.status, R.string.transaction_status, items);
+		} else if (id == R.id.status_clear) {
+			clear(BlotterFilter.STATUS, status);
 		}
 	}
 
 	@Override
 	public void onSelectedId(final int id, final long selectedId) {
 		super.onSelectedId(id, selectedId);
-		switch (id) {
-			case R.id.account:
-				filter.put(Criteria.eq(FROM_ACCOUNT_ID, String.valueOf(selectedId)));
-				updateAccountFromFilter();
-				break;
-			case R.id.currency:
-				filter.put(Criteria.or(
-						Criteria.eq(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID, String.valueOf(selectedId)),
-						Criteria.eq(BlotterFilter.ORIGINAL_CURRENCY_ID, String.valueOf(selectedId))
-				));
-				updateCurrencyFromFilter();
-				break;
+		if (id == R.id.account) {
+			filter.put(Criterion.eq(FROM_ACCOUNT_ID, String.valueOf(selectedId)));
+			updateAccountFromFilter();
+		} else if (id == R.id.currency) {
+			filter.put(Criterion.or(
+					Criterion.eq(BlotterFilter.FROM_ACCOUNT_CURRENCY_ID, String.valueOf(selectedId)),
+					Criterion.eq(BlotterFilter.ORIGINAL_CURRENCY_ID, String.valueOf(selectedId))
+			));
+			updateCurrencyFromFilter();
 		}
 	}
 
 	@Override
 	public void onSelectedPos(int id, int selectedPos) {
 		super.onSelectedPos(id, selectedPos);
-		switch (id) {
-			case R.id.status:
-				filter.put(Criteria.eq(BlotterFilter.STATUS, statuses[selectedPos].name()));
-				updateStatusFromFilter();
-				break;
-			case R.id.sort_order:
-				filter.resetSort();
-				if (selectedPos == 1) {
-					filter.asc(BlotterFilter.DATETIME);
-				} else {
-					filter.desc(BlotterFilter.DATETIME);
-				}
-				updateSortOrderFromFilter();
-				break;
+		if (id == R.id.sort_order) {
+			filter.resetSort();
+			if (selectedPos == 1) {
+				filter.asc(BlotterFilter.DATETIME);
+			} else {
+				filter.desc(BlotterFilter.DATETIME);
+			}
+			updateSortOrderFromFilter();
 		}
 	}
 
 	@Override
 	public void onSelected(int id, List<? extends MultiChoiceItem> items) {
 		super.onSelected(id, items);
+		if (id == R.id.status) {
+			var statuses = new ArrayList<String>();
+			for (var item : items) {
+				if (item.isChecked()) {
+					statuses.add(((TransactionStatusMultiChoiceItem) item).status.name());
+				}
+			}
+			if (!statuses.isEmpty()) {
+				filter.put(Criterion.in(BlotterFilter.STATUS, statuses.toArray(new String[0])));
+			}
+			else {
+				clear(BlotterFilter.STATUS, status);
+			}
+			updateStatusFromFilter();
+		}
 	}
 
 	@Override
@@ -338,7 +346,7 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 				if (resultCode == RESULT_FIRST_USER) {
 					onClick(period, R.id.period_clear);
 				} else if (resultCode == RESULT_OK) {
-					DateTimeCriteria c = WhereFilter.dateTimeFromIntent(this, data);
+					DateTimeCriterion c = WhereFilter.dateTimeFromIntent(data);
 					filter.put(c);
 					updatePeriodFromFilter();
 				}
@@ -348,11 +356,42 @@ public class BlotterFilterActivity extends FilterAbstractActivity {
 				if (resultCode == RESULT_FIRST_USER) {
 					onClick(note, R.id.note_clear);
 				} else if (resultCode == RESULT_OK) {
-					filter.put(new Criteria(BlotterFilter.NOTE, WhereFilter.Operation.LIKE,
+					filter.put(new Criterion(BlotterFilter.NOTE, WhereFilter.Operation.LIKE,
 							data.getStringExtra(NoteFilterActivity.NOTE_CONTAINING)));
 					updateNoteFromFilter();
 				}
 				break;
+		}
+	}
+
+	static class TransactionStatusMultiChoiceItem implements MultiChoiceItem {
+		public TransactionStatus status;
+		private String title;
+		private boolean isChecked;
+
+		public TransactionStatusMultiChoiceItem(TransactionStatus status, String title) {
+			this.status = status;
+			this.title = title;
+		}
+
+		@Override
+		public long getId() {
+			return status.ordinal();
+		}
+
+		@Override
+		public String getTitle() {
+			return this.title;
+		}
+
+		@Override
+		public boolean isChecked() {
+			return isChecked;
+		}
+
+		@Override
+		public void setChecked(boolean checked) {
+			isChecked = checked;
 		}
 	}
 }

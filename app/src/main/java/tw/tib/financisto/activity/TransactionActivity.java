@@ -68,7 +68,7 @@ public class TransactionActivity extends AbstractTransactionActivity {
     }
 
     protected int getLayoutId() {
-        return MyPreferences.isUseFixedLayout(this) ? R.layout.transaction_fixed : R.layout.transaction_free;
+        return MyPreferences.isUseFixedLayout() ? R.layout.transaction_fixed : R.layout.transaction_free;
     }
 
     @Override
@@ -183,14 +183,14 @@ public class TransactionActivity extends AbstractTransactionActivity {
             accountText = x.addListNode(layout, R.id.account, R.string.account, R.string.select_account);
         }
         //payee
-        isShowPayee = MyPreferences.isShowPayee(this);
+        isShowPayee = MyPreferences.isShowPayee();
         if (isShowPayee) {
             createPayeeNode(layout);
         }
         //category
         categorySelector.createNode(layout, CategorySelector.SelectorType.TRANSACTION);
         //amount
-        if (!isUpdateBalanceMode && MyPreferences.isShowCurrency(this)) {
+        if (!isUpdateBalanceMode && MyPreferences.isShowCurrency()) {
             currencyText = x.addListNode(layout, R.id.original_currency, R.string.currency, R.string.original_currency_as_account);
         } else {
             currencyText = new TextView(this);
@@ -217,13 +217,6 @@ public class TransactionActivity extends AbstractTransactionActivity {
             }
             createSplitsLayout(layout);
             rateView.setAmountFromChangeListener((oldAmount, newAmount) -> updateUnsplitAmount());
-        }
-    }
-
-    private void selectLastCategoryForPayee(long id) {
-        Payee p = db.get(Payee.class, id);
-        if (p != null) {
-            categorySelector.selectCategory(p.lastCategoryId);
         }
     }
 
@@ -425,27 +418,22 @@ public class TransactionActivity extends AbstractTransactionActivity {
     @Override
     public void onSelectedPos(int id, int selectedPos) {
         super.onSelectedPos(id, selectedPos);
-        switch (id) {
-            case R.id.payee:
-                if (isRememberLastCategory && !categorySelector.isSplitCategorySelected()) {
-                    selectLastCategoryForPayee(payeeSelector.getSelectedEntityId());
-                }
-                break;
+        if (id == R.id.payee) {
+            if (isRememberLastCategory && !categorySelector.isSplitCategorySelected()) {
+                selectLastCategoryForPayee(payeeSelector.getSelectedEntityId());
+            }
         }
     }
 
     @Override
     public void onSelectedId(int id, long selectedId) {
         super.onSelectedId(id, selectedId);
-        switch (id) {
-            case R.id.currency:
-                selectOriginalCurrency(selectedId);
-                break;
-            case R.id.payee:
-                if (isRememberLastCategory) {
-                    selectLastCategoryForPayee(selectedId);
-                }
-                break;
+        if (id == R.id.currency) {
+            selectOriginalCurrency(selectedId);
+        } else if (id == R.id.payee) {
+            if (isRememberLastCategory) {
+                selectLastCategoryForPayee(selectedId);
+            }
         }
     }
 

@@ -34,11 +34,16 @@ import java.util.List;
 
 import tw.tib.financisto.R;
 import tw.tib.financisto.db.DatabaseAdapter;
+import tw.tib.financisto.db.DatabaseHelper;
+import tw.tib.financisto.filter.Criterion;
+import tw.tib.financisto.filter.DateTimeCriterion;
+import tw.tib.financisto.filter.WhereFilter;
 import tw.tib.financisto.graph.Report2DChart;
 import tw.tib.financisto.graph.Report2DPoint;
 import tw.tib.financisto.model.Currency;
 import tw.tib.financisto.model.PeriodValue;
 import tw.tib.financisto.model.ReportDataByPeriod;
+import tw.tib.financisto.report.AccountBalanceByPeriodReport;
 import tw.tib.financisto.report.AccountByPeriodReport;
 import tw.tib.financisto.report.CategoryByPeriodReport;
 import tw.tib.financisto.report.LocationByPeriodReport;
@@ -74,6 +79,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
     private Currency currency;
     private Calendar startPeriod;
     private ReportType reportType;
+    private MyPreferences.ReportAggregateUnit aggregateUnit;
 
     private LineChart chart;
     private List<Entry> vals;
@@ -95,6 +101,8 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
     private boolean prefCurNotSet = false;
     // boolean to check if preferred period is set
     private boolean prefPerNotSet = false;
+
+    private PeriodValue currentPoint = null;
 
     @Override
     protected void attachBaseContext(Context base) {
@@ -140,6 +148,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
         for (int i=0; i<periods.length; ++i) {
             if (periods[i] == months) return i;
         }
+        if (months > 0) return (periods.length - 1);
         return 0;
     }
 
@@ -157,6 +166,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
         // Period of Reference
         int periodLength = getPeriodOfReference();
         selectedPeriod = selectPeriodFromLength(periodLength);
+        aggregateUnit = MyPreferences.getReportAggregateUnit();
 
         // check report preferences for reference month different of current month
         setStartPeriod(periodLength);
@@ -164,19 +174,24 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
         boolean built = false;
         switch (reportType) {
             case BY_ACCOUNT_BY_PERIOD:
-                reportData = new AccountByPeriodReport(this, db, startPeriod, periodLength, currency);
+                reportData = new AccountByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 break;
             case BY_CATEGORY_BY_PERIOD:
-                reportData = new CategoryByPeriodReport(this, db, startPeriod, periodLength, currency);
+                reportData = new CategoryByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 break;
             case BY_PAYEE_BY_PERIOD:
-                reportData = new PayeeByPeriodReport(this, db, startPeriod, periodLength, currency);
+                reportData = new PayeeByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 break;
             case BY_LOCATION_BY_PERIOD:
-                reportData = new LocationByPeriodReport(this, db, startPeriod, periodLength, currency);
+                reportData = new LocationByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 break;
             case BY_PROJECT_BY_PERIOD:
-                reportData = new ProjectByPeriodReport(this, db, startPeriod, periodLength, currency);
+                reportData = new ProjectByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
+                break;
+            case BY_ACCOUNT_BALANCE_BY_PERIOD:
+                findViewById(R.id.report_sum_result).setVisibility(View.INVISIBLE);
+                findViewById(R.id.report_sum_label).setVisibility(View.INVISIBLE);
+                reportData = new AccountBalanceByPeriodReport(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 break;
         }
 
@@ -233,6 +248,33 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
                             })
                     .setTitle(reportData.getFilterItemTypeName())
                     .show();
+        });
+
+        // search transactions
+        ImageButton bViewTransactions = findViewById(R.id.bt_view_transactions);
+        bViewTransactions.setOnClickListener((view) -> {
+            if (currentPoint == null) return;
+            WhereFilter filter = WhereFilter.empty();
+            // get the current selected filter from report
+            filter.put(reportData.getCriteria());
+            // current selected point's timeframe
+            Calendar timeframe = currentPoint.getTimeframe();
+            Calendar end = (Calendar) timeframe.clone();
+            switch (aggregateUnit) {
+                case MONTH -> {
+                    end.add(Calendar.MONTH, 1);
+                }
+                case YEAR, FISCAL_YEAR -> {
+                    end.add(Calendar.YEAR, 1);
+                }
+            }
+            end.add(Calendar.DAY_OF_MONTH, -1);
+            filter.put(new DateTimeCriterion(timeframe.getTimeInMillis(),
+                    tw.tib.financisto.datetime.DateUtils.endOfDay(end).getTimeInMillis()));
+            filter.put(Criterion.eq(DatabaseHelper.ReportColumns.IS_TRANSFER, "0"));
+            Intent intent = new Intent(this, BlotterActivity.class);
+            filter.toIntent(intent);
+            startActivity(intent);
         });
 
         // prefs
@@ -386,7 +428,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      */
     private void processPeriodLengthChange(int previousPeriod, boolean refresh) {
         if (previousPeriod != selectedPeriod) {
-            reportData.changePeriodLength(periods[selectedPeriod]);
+            reportData.changePeriodLength(getPeriodOfReference());
             setStartPeriod(periods[selectedPeriod]);
             reportData.changeStartPeriod(startPeriod);
             if (refresh) refreshView();
@@ -397,6 +439,8 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      * Update the view reflecting data changes
      */
     private void refreshView() {
+        // onValueSelected uses currency formatting so it need to be set here
+        currency = reportData.getCurrency();
         // set data to plot
         if (reportData.hasDataToPlot()) {
             findViewById(R.id.report_empty).setVisibility(View.GONE);
@@ -409,7 +453,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
                 // x value is 32-bit floating point, on recent timestamps the step size is 131.072 seconds
                 // so sometimes it will become 1~2 minutes earlier in the previous month when converting to float
                 // we are only using the month part, so add 86400*1000*14 ms to shift it to middle of month
-                vals.add(new Entry(v.getMonthTimeInMillis() + 1209600000f, (float) v.getValue() / 100.0f));
+                vals.add(new Entry(v.getTimeframeTimeInMillis() + 1209600000f, (float) v.getValue() / 100.0f, v));
             }
 
             ds.notifyDataSetChanged();
@@ -446,34 +490,38 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      * Fill statistics panel based on report data
      */
     private void fillStatistics() {
-        boolean considerNull = MyPreferences.considerNullResultsInReport(this);
-        Double max;
-        Double min;
-        Double mean;
-        Double meanWithSign;
-        Double sum = reportData.getDataBuilder().getSum();
-        if (considerNull) {
-            max = reportData.getDataBuilder().getMaxValue();
-            min = reportData.getDataBuilder().getMinValue();
-            mean = meanWithSign = reportData.getDataBuilder().getMean();
-            if ((min * max >= 0)) {
-                // absolute calculation (all points over the x axis)
-                max = reportData.getDataBuilder().getAbsoluteMaxValue();
-                min = reportData.getDataBuilder().getAbsoluteMinValue();
-                mean = Math.abs(mean);
-                sum = Math.abs(sum);
-            }
-        } else {
-            // exclude impact of null values in statistics
-            max = reportData.getDataBuilder().getMaxExcludingNulls();
-            min = reportData.getDataBuilder().getMinExcludingNulls();
-            mean = meanWithSign = reportData.getDataBuilder().getMeanExcludingNulls();
-            if ((min * max >= 0)) {
-                // absolute calculation (all points over the x axis)
-                max = reportData.getDataBuilder().getAbsoluteMaxExcludingNulls();
-                min = reportData.getDataBuilder().getAbsoluteMinExcludingNulls();
-                mean = Math.abs(mean);
-                sum = Math.abs(sum);
+        boolean considerNull = MyPreferences.considerNullResultsInReport();
+        ReportDataByPeriod data = reportData.getDataBuilder();
+        Double max = 0.0;
+        Double min = 0.0;
+        Double mean = 0.0;
+        Double meanWithSign = 0.0;
+        Double sum = 0.0;
+        if (data != null) {
+            sum = data.getSum();
+            if (considerNull) {
+                max = data.getMaxValue();
+                min = data.getMinValue();
+                mean = meanWithSign = data.getMean();
+                if ((min * max >= 0)) {
+                    // absolute calculation (all points over the x axis)
+                    max = data.getAbsoluteMaxValue();
+                    min = data.getAbsoluteMinValue();
+                    mean = Math.abs(mean);
+                    sum = Math.abs(sum);
+                }
+            } else {
+                // exclude impact of null values in statistics
+                max = data.getMaxExcludingNulls();
+                min = data.getMinExcludingNulls();
+                mean = meanWithSign = data.getMeanExcludingNulls();
+                if ((min * max >= 0)) {
+                    // absolute calculation (all points over the x axis)
+                    max = data.getAbsoluteMaxExcludingNulls();
+                    min = data.getAbsoluteMinExcludingNulls();
+                    mean = Math.abs(mean);
+                    sum = Math.abs(sum);
+                }
             }
         }
         // chart limits
@@ -502,7 +550,7 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      * @return The currency registered as a reference to display chart reports or the default currency if not configured yet.
      */
     private Currency getReferenceCurrency() {
-        Currency c = MyPreferences.getReferenceCurrency(this);
+        Currency c = MyPreferences.getReferenceCurrency();
         if (c == null) {
             prefCurNotSet = true;
             Collection<Currency> currencies = CurrencyCache.getAllCurrencies();
@@ -534,9 +582,9 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
 
     private void showPreferences() {
         // save preferences status before call report preferences activity
-        initialPrefs = MyPreferences.getReportPreferences(this);
+        initialPrefs = MyPreferences.getReportPreferences();
         // call report preferences activity asking for result when closed
-        Intent intent = new Intent(this, ReportPreferencesActivity.class);
+        Intent intent = new Intent(this, ReportPreferencesActivity2.class);
         startActivityForResult(intent, REPORT_PREFERENCES);
     }
 
@@ -544,10 +592,11 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // See which child activity is calling us back.
         if (initialPrefs != null) {
-            boolean changed = preferencesChanged(initialPrefs, MyPreferences.getReportPreferences(this));
+            boolean changed = preferencesChanged(initialPrefs, MyPreferences.getReportPreferences());
             if (changed) {
                 // rebuild data
-                reportData.rebuild(this, db, startPeriod, periods[selectedPeriod], currency);
+                int periodLength = getPeriodOfReference();
+                reportData.rebuild(this, db, startPeriod, periodLength, currency, aggregateUnit);
                 refreshView();
             }
         }
@@ -593,6 +642,11 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
             // the change will be processed in rebuild
             changed = true;
         }
+        // 5 aggregate unit
+        if (!initial[7].equals(actual[7])) {
+            aggregateUnit = MyPreferences.getReportAggregateUnit();
+            changed = true;
+        }
 
         if (reportType == ReportType.BY_CATEGORY_BY_PERIOD) {
             // include sub categories in list (rebuild will regenerate the filter Ids list)
@@ -613,14 +667,23 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      * @param periodLength The number of months to be represented in the 2D report.
      */
     private void setStartPeriod(int periodLength) {
-        int refMonth = MyPreferences.getReferenceMonth(this);
+        int refMonth = MyPreferences.getReferenceMonth();
         Calendar now = Calendar.getInstance();
         startPeriod = new GregorianCalendar(now.get(Calendar.YEAR), now.get(Calendar.MONTH), 1);
         if (refMonth != 0) {
             startPeriod.add(Calendar.MONTH, refMonth);
         }
-        // move to start period (reference month - <periodLength> months)
-        startPeriod.add(Calendar.MONTH, (-1) * periodLength + 1);
+
+        if (periodLength != -1) {
+            // move to start period (reference month - <periodLength> months)
+            startPeriod.add(Calendar.MONTH, (-1) * periodLength + 1);
+        }
+        else {
+            // use earliest transaction time as start period
+            startPeriod = Calendar.getInstance();
+            startPeriod.setTimeInMillis(db.getEarliestTransactionTimestamp());
+            startPeriod.set(Calendar.DAY_OF_MONTH, 1);
+        }
     }
 
     /**
@@ -629,10 +692,20 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
      * @return The number of months to be represented in the 2D report.
      */
     private int getPeriodOfReference() {
-        int periodLength = MyPreferences.getPeriodOfReference(this);
+        int periodLength = MyPreferences.getPeriodOfReference();
         if (periodLength == 0) {
             periodLength = ReportDataByPeriod.DEFAULT_PERIOD;
             prefPerNotSet = true;
+        }
+        if (periodLength == -1) {
+            Calendar start = Calendar.getInstance();
+            Calendar now = Calendar.getInstance();
+
+            start.setTimeInMillis(db.getEarliestTransactionTimestamp());
+            start.set(Calendar.DAY_OF_MONTH, 1);
+
+            periodLength = (now.get(Calendar.YEAR) * 12 + now.get(Calendar.MONTH))
+                    - (start.get(Calendar.YEAR) * 12 + start.get(Calendar.MONTH)) + 1;
         }
         return periodLength;
     }
@@ -657,8 +730,9 @@ public class Report2DChartActivity extends Activity implements OnChartValueSelec
 
     @Override
     public void onValueSelected(Entry e, Highlight h) {
+        currentPoint = (PeriodValue) e.getData();
         pointDate.setText(DateUtils.formatDateTime(this, (long) e.getX(), DateUtils.FORMAT_NO_MONTH_DAY));
-        pointAmount.setText(Utils.amountToString(currency, (long) e.getY() * 100));
+        pointAmount.setText(Utils.amountToString(currency, (long) (e.getY() * 100)));
         pointAmount.setTextColor(e.getY() >= 0 ? positive : negative);
     }
 

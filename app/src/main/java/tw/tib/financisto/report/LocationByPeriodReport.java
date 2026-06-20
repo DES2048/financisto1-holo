@@ -5,7 +5,7 @@ import java.util.Calendar;
 import java.util.List;
 
 import tw.tib.financisto.R;
-import tw.tib.financisto.db.MyEntityManager;
+import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.db.DatabaseHelper.TransactionColumns;
 import tw.tib.financisto.graph.Report2DChart;
 import tw.tib.financisto.model.Currency;
@@ -19,8 +19,8 @@ import android.content.Context;
  */
 public class LocationByPeriodReport extends Report2DChart {
 
-	public LocationByPeriodReport(Context context, MyEntityManager em, Calendar startPeriod, int periodLength, Currency currency) {
-		super(context, em, startPeriod, periodLength, currency);
+	public LocationByPeriodReport(Context context, DatabaseAdapter em, Calendar startPeriod, int periodLength, Currency currency, MyPreferences.ReportAggregateUnit aggregateUnit) {
+		super(context, em, startPeriod, periodLength, currency, aggregateUnit);
 	}
 
 	/* (non-Javadoc)
@@ -52,7 +52,7 @@ public class LocationByPeriodReport extends Report2DChart {
 	@Override
 	protected void createFilter() {
 		columnFilter = TransactionColumns.location_id.name();
-		boolean includeNoLocation = MyPreferences.includeNoFilterInReport(context);
+		boolean includeNoLocation = MyPreferences.includeNoFilterInReport();
 		filterIds = new ArrayList<>();
 		filterTitles = new ArrayList<>();
 		List<MyLocation> locations = em.getAllLocationsList(includeNoLocation);

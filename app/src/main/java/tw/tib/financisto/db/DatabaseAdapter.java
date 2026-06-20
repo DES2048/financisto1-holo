@@ -23,7 +23,7 @@ import org.androidannotations.annotations.EBean;
 import tw.tib.financisto.R;
 import tw.tib.financisto.blotter.BlotterFilter;
 import tw.tib.financisto.datetime.DateUtils;
-import tw.tib.financisto.filter.Criteria;
+import tw.tib.financisto.filter.Criterion;
 import tw.tib.financisto.filter.WhereFilter;
 import tw.tib.financisto.model.Currency;
 import tw.tib.financisto.utils.ArrUtils;
@@ -145,7 +145,7 @@ public class DatabaseAdapter extends MyEntityManager {
 
     public static WhereFilter enhanceFilterForAccountBlotter(WhereFilter filter) {
         WhereFilter accountFilter = WhereFilter.copyOf(filter);
-        accountFilter.put(Criteria.raw(DatabaseHelper.BlotterColumns.parent_id + "=0 OR " + DatabaseHelper.BlotterColumns.is_transfer + "=-1"));
+        accountFilter.put(Criterion.raw(DatabaseHelper.BlotterColumns.parent_id + "=0 OR " + DatabaseHelper.BlotterColumns.is_transfer + "=-1"));
         return accountFilter;
     }
 
@@ -309,12 +309,12 @@ public class DatabaseAdapter extends MyEntityManager {
             }
             else {
                 // if configured, set copied transaction's status to unreconciled
-                if (MyPreferences.isResetCopiedTransactionStatus(context)) {
+                if (MyPreferences.isResetCopiedTransactionStatus()) {
                     transaction.status = TransactionStatus.UR;
                 }
                 // if configured and transaction is in foreign currency,
                 // set copied transaction's status to pending
-                if (MyPreferences.isResetCopiedForeignTransactionStatus(context) &&
+                if (MyPreferences.isResetCopiedForeignTransactionStatus() &&
                         transaction.originalCurrencyId != 0) {
                     transaction.status = TransactionStatus.PN;
                 }
@@ -329,7 +329,7 @@ public class DatabaseAdapter extends MyEntityManager {
             }
 
             if (transaction.projectId != Project.NO_PROJECT_ID &&
-                    MyPreferences.isUpdateCopiedTransactionProject(context))
+                    MyPreferences.isUpdateCopiedTransactionProject())
             {
                 // Get recently used project ID in a week
                 // TODO make the time span configurable?
@@ -401,8 +401,6 @@ public class DatabaseAdapter extends MyEntityManager {
         }
         transaction.id = transactionId;
         insertSplits(transaction);
-        updateAccountLastTransactionDate(transaction.fromAccountId);
-        updateAccountLastTransactionDate(transaction.toAccountId);
         return transactionId;
     }
 
@@ -483,10 +481,13 @@ public class DatabaseAdapter extends MyEntityManager {
                 if (t.isSplitChild()) {
                     if (t.isTransfer()) {
                         updateToAccountBalance(t, id);
+                        updateAccountLastTransactionDate(t.toAccountId);
                     }
                 } else {
                     updateFromAccountBalance(t, id);
                     updateToAccountBalance(t, id);
+                    updateAccountLastTransactionDate(t.fromAccountId);
+                    updateAccountLastTransactionDate(t.toAccountId);
                     updateLocationCount(t.locationId, 1);
                     updateLastUsed(t);
                 }
@@ -1567,7 +1568,7 @@ public class DatabaseAdapter extends MyEntityManager {
             String accountId = String.valueOf(account.getId());
             db.execSQL("delete from running_balance where account_id=?", new Object[]{accountId});
             WhereFilter filter = new WhereFilter("");
-            filter.put(Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, accountId));
+            filter.put(Criterion.eq(BlotterFilter.FROM_ACCOUNT_ID, accountId));
             filter.asc("datetime");
             filter.asc("_id");
             Object[] values = new Object[4];
@@ -1857,6 +1858,19 @@ public class DatabaseAdapter extends MyEntityManager {
         }
     }
 
+    /**
+     * @param name ISO 4217 currency code
+     * @return currency id, 0 if not found
+     */
+    public long findCurrencyByName(String name) {
+        try (Cursor c = db().rawQuery("select _id from " + DatabaseHelper.CURRENCY_TABLE + " where name = ?",
+                new String[]{name}))
+        {
+            if (!c.moveToNext()) return 0;
+            return c.getLong(0);
+        }
+    }
+
     public boolean singleCurrencyOnly() {
         long currencyId = getSingleCurrencyId();
         return currencyId > 0;
@@ -2058,6 +2072,15 @@ public class DatabaseAdapter extends MyEntityManager {
         } finally {
             long t1 = System.nanoTime();
             Log.i(TAG, "getRecentlyUsedCategories " + ((t1 - t0) / 1000f) + "ms");
+        }
+    }
+
+    public long getEarliestTransactionTimestamp() {
+        try (Cursor c = db().rawQuery("select datetime from transactions order by datetime asc limit 1", new String[0])) {
+            if (c.moveToNext()) {
+                return c.getLong(0);
+            }
+            return System.currentTimeMillis();
         }
     }
 

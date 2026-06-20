@@ -55,7 +55,7 @@ public abstract class TotalCalculationTask extends AsyncTask<Object, Total, Tota
 
 	@Override
 	protected void onPostExecute(Total result) {
-		if (isRunning) {
+		if (isRunning && context != null) {
             if (result.currency == Currency.EMPTY) {
 				if (db.getHomeCurrency() == Currency.EMPTY) {
 					Toast.makeText(context, R.string.currency_make_default_warning, Toast.LENGTH_LONG).show();
@@ -63,7 +63,7 @@ public abstract class TotalCalculationTask extends AsyncTask<Object, Total, Tota
             }
             Utils u = new Utils(context);
     	    u.setTotal(totalText, result);
-			if (MyPreferences.isBlurBalances(context)) {
+			if (MyPreferences.isBlurBalances()) {
 				u.applyBlur(totalText);
 				totalText.invalidate();
 			}

@@ -18,9 +18,8 @@ import android.database.sqlite.SQLiteDatabase;
 
 import tw.tib.financisto.blotter.BlotterFilter;
 import tw.tib.financisto.datetime.Period;
-import tw.tib.financisto.filter.Criteria;
+import tw.tib.financisto.filter.Criterion;
 import tw.tib.financisto.filter.WhereFilter;
-import tw.tib.financisto.db.DatabaseHelper_;
 import tw.tib.financisto.model.*;
 import tw.tib.financisto.model.Currency;
 import tw.tib.financisto.utils.MyPreferences;
@@ -83,10 +82,7 @@ public abstract class MyEntityManager extends EntityManager {
 		}
 		if (!StringUtil.isEmpty(titleLike)) {
 			titleLike = "%" + titleLike.replace(" ", "%") + "%";
-			whereEx = Expressions.and(whereEx, Expressions.or(
-					Expressions.like("title", "%" + titleLike + "%"),
-					Expressions.like("title", "%" + StringUtil.capitalize(titleLike) + "%")
-			));
+			whereEx = Expressions.and(whereEx, Expressions.like("title", "%" + titleLike + "%"));
 		}
 		q.where(whereEx).ascLocale("title");
 		return q.execute();
@@ -124,7 +120,7 @@ public abstract class MyEntityManager extends EntityManager {
 		if (!includeCurrentLocation) {
 			q.where(Expressions.gt("id", 0));
 		}
-		MyPreferences.LocationsSortOrder sortOrder = MyPreferences.getLocationsSortOrder(context);
+		MyPreferences.LocationsSortOrder sortOrder = MyPreferences.getLocationsSortOrder();
 		if (sortOrder.asc) {
 			q.asc(sortOrder.property);
 		} else {
@@ -255,7 +251,7 @@ public abstract class MyEntityManager extends EntityManager {
 	}
 
 	private Cursor getAllAccounts(boolean isActiveOnly, String filter, long... includeAccounts) {
-		MyPreferences.AccountSortOrder sortOrder = MyPreferences.getAccountSortOrder(context);
+		MyPreferences.AccountSortOrder sortOrder = MyPreferences.getAccountSortOrder();
 		Query<AccountForSearch> q = createQuery(AccountForSearch.class);
 		ArrayList<Expression> e = new ArrayList<>();
 
@@ -308,7 +304,7 @@ public abstract class MyEntityManager extends EntityManager {
 	public List<Account> getAllAccountsListWithFilter(String filter, boolean canHideClosed) {
 		List<Account> list = new ArrayList<>();
 		Cursor c;
-		if (canHideClosed && MyPreferences.isHideClosedAccounts(context)) {
+		if (canHideClosed && MyPreferences.isHideClosedAccounts()) {
 			c = getAllActiveAccountsWithFilter(filter);
 		} else {
 			c = getAllAccountsWithFilter(filter);
@@ -503,7 +499,7 @@ public abstract class MyEntityManager extends EntityManager {
 
 	public ArrayList<Budget> getAllBudgets(WhereFilter filter, BudgetSortOrder budgetSortOrder) {
 		Query<Budget> q = createQuery(Budget.class);
-		Criteria c = filter.get(BlotterFilter.DATETIME);
+		Criterion c = filter.get(BlotterFilter.DATETIME);
 		if (c != null) {
 			long start = c.getLongValue1();
 			long end = c.getLongValue2();

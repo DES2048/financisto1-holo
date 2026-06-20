@@ -145,7 +145,9 @@
   <string name="report_by_location_by_period">以地點 / 期間統計</string>
   <string name="report_by_location_by_period_summary">以地點與期間統計的交易報告</string>
   <string name="report_by_project_by_period">以專案 / 期間統計</string>
-  <string name="report_by_project_by_period_summary">以專案與期間統計的</string>
+  <string name="report_by_project_by_period_summary">以專案與期間統計的交易報告</string>
+  <string name="report_by_account_balance_by_period">以帳戶結餘 / 期間統計</string>
+  <string name="report_by_account_balance_by_period_summary">以帳戶餘額與期間統計的報告</string>
   <string name="max_result_label">最多:</string>
   <string name="min_result_label">最少:</string>
   <string name="mean_result_label">平均:</string>
@@ -166,9 +168,11 @@
   <string name="period_this_week">本週</string>
   <string name="period_this_month">本月</string>
   <string name="period_this_year">本年</string>
+  <string name="period_this_fiscal_year">本會計年度</string>
   <string name="period_last_week">上一週</string>
   <string name="period_last_month">上個月</string>
   <string name="period_last_year">去年</string>
+  <string name="period_last_fiscal_year">上一會計年度</string>
   <string name="currency_name">名稱</string>
   <string name="currency_symbol">符號</string>
   <string name="currency_code">貨幣碼</string>
@@ -386,6 +390,13 @@
   <string name="report_include_no_filter_summary">在報告過濾清單內包含未分類的資料 (無分類、無專案、位置不明等)</string>
   <string name="report_reference_month">基準月份</string>
   <string name="report_reference_month_summary">定義報告統計終點的月份。</string>
+  <string name="report_aggregate_unit">小計單位</string>
+  <string name="report_aggregate_unit_summary">選擇報表的小計單位</string>
+  <string-array name="report_aggregate_unit_entities">
+    <item>月</item>
+    <item>年</item>
+    <item>會計年度</item>
+  </string-array>
   <string name="report_last_quarter">前一季</string>
   <string name="report_last_half_year">前半年</string>
   <string name="report_last_9_months">前 9 個月</string>
@@ -428,6 +439,7 @@
   <string name="transfer_template">移轉 (樣版)</string>
   <string name="no_templates">無樣版</string>
   <string name="template">樣版</string>
+  <string name="new_from_template">以樣板新增交易/移轉</string>
   <string name="delete_template_confirm">確定刪除樣版?</string>
   <string name="save_as_template">儲存為樣板</string>
   <string name="save_as_template_success">已將交易儲存為樣板</string>
@@ -602,6 +614,8 @@
   <string name="update_copied_transaction_project_summary">複製有專案的交易時改用最新使用過的專案</string>
   <string name="colorize_weekend_date">彩色標記週末日期</string>
   <string name="colorize_weekend_date_summary">將週六、週日的日期時間以紅色顯示</string>
+  <string name="blotter_show_time_of_day">顯示交易時間</string>
+  <string name="blotter_show_time_of_day_summary">顯示交易在一日內的時間</string>
   <string name="new_currency">新幣值 ...</string>
   <string name="lock_time">鎖定時間</string>
   <string name="lock_time_summary">主畫面在自動鎖定前的顯示時間</string>
@@ -644,6 +658,7 @@
   <string name="csv_time_required">匯入資料必須有 time (時間) 欄位</string>
   <string name="csv_time_format_error">time 欄位必須使用 HH:mm:ss 格式: %1$s</string>
   <string name="csv_amount_required">新建交易必須有 amount 欄位</string>
+  <string name="csv_to_amount_required">新建轉帳必須有 `to amount` 欄位</string>
   <string name="csv_txid_not_found">txid %1$s 不是一筆現有交易</string>
   <string name="csv_currency_not_found">currency (幣值) %1$s 不存在</string>
   <string name="csv_account_not_found">account (帳戶) %1$s 不存在</string>
@@ -785,6 +800,7 @@
   <string name="period_this_and_last_week">本週與上週</string>
   <string name="period_this_and_last_month">本月與上月</string>
   <string name="period_this_and_last_year">本年與去年</string>
+  <string name="period_this_and_last_fiscal_year">本會計年度與上一會計年度</string>
   <string name="period_custom">自訂</string>
   <string name="original_amount">原始總額</string>
   <string name="original_currency_as_account">與帳戶相同</string>
@@ -814,12 +830,14 @@
   <string name="privacy_policy">Privacy Policy</string>
 
   <!-- SMS stuff >> -->
+  <string name="sms_description">規則說明</string>
+  <string name="sms_description_hint">顯示為列表標題方便識別; 非必要</string>
   <string name="sms_sender">發送通知的程式 / 簡訊發送門號</string>
   <string name="sms_tpl_filter_hint">輸入數字或文字過濾</string>
   <string name="sms_number_hint">發送通知的程式名稱或發送簡訊的門號, 可用 % 代表任意字串</string>
   <string name="sms_tpl">通知 / 簡訊模板</string>
   <string name="sms_tpl_title">模板 (?)</string>
-  <string name="sms_tpl_desc">佔位標籤: \n{{p}} - 金額\n{{a}} - 帳號/卡號片段\n{{c}} - 帳號名稱\n{{x}} - 轉帳對象帳號名稱\n{{e}} - 受款人名稱 (不能有空白)\n{{r}} - 專案名稱 (不能有空白)\n{{t}} - 交易內容敘述 (盡可能短)\n{{u}} - 交易內容敘述 (盡可能長)\n{{*}} - 任意內容 (不處理)</string>
+  <string name="sms_tpl_desc">佔位標籤: \n{{p}} - 金額\n{{a}} - 帳號/卡號片段\n{{c}} - 帳號名稱\n{{x}} - 轉帳對象帳號名稱\n{{f}} - ISO 4217 貨幣代碼\n{{e}} - 受款人名稱 (不能有空白)\n{{r}} - 專案名稱 (不能有空白)\n{{t}} - 交易內容敘述 (盡可能短)\n{{u}} - 交易內容敘述 (盡可能長)\n{{*}} - 任意內容 (不處理)</string>
   <string name="sms_tpl_hint">在此輸入模板，並以佔位標籤標記資料</string>
   <string name="sms_note_title">備註 (?)</string>
   <string name="sms_note_desc">佔位標籤: \n{{t}} - 會被換成模板取得的交易內容敘述</string>
@@ -849,6 +867,7 @@
   <string name="pref_tpl_transaction_status">從模板自動產生的交易狀態: %s</string>
   <string name="pref_tpl_adding_to_note_title">儲存通知內文</string>
   <string name="pref_tpl_adding_to_note">將通知內文存到自動產生的交易</string>
+  <string name="sms_tpl_error_log">處理模板時找不到帳戶或無法解讀金額, 發送者 `%1$s`, 模板 `%2$s`, 通知內容 `%3$s`</string>
 
   <string name="preferences_summary">變更程式設定</string>
   <string name="entities_summary">修改分類、受款人、專案、地點等等</string>
@@ -931,6 +950,7 @@
     <item>2 年</item>
     <item>5 年</item>
     <item>10 年</item>
+    <item>所有資料</item>
   </string-array>
   <string-array name="lock_time_entities">
     <item>關閉</item>
@@ -957,10 +977,6 @@
   <string name="fingerprint_unavailable_enrolled_fingerprints">必須至少登記一個指紋</string>
   <string name="fingerprint_unavailable_unknown">不支援本裝置</string>
   <string name="fingerprint_unavailable">無法取用: %s</string>
-  <string-array name="ui_theme_entities">
-    <item>深色</item>
-    <item>淺色</item>
-  </string-array>
   <string name="invalid_rrule">RRule 有誤: %s</string>
   <string-array name="budget_sort_order">
     <item>依名稱</item>
@@ -989,6 +1005,7 @@
   <string name="export_tx_ids">匯出交易 ID</string>
   <string name="export_attributes">匯出交易屬性</string>
   <string name="export_running_balance">匯出逐筆餘額</string>
+  <string name="export_transfer_as_single_line">以一行匯出轉帳交易</string>
 
   <string name="transfer_current_balance">轉出所有餘額</string>
   <string name="show_transfer_current_balance">顯示「轉出目前餘額」</string>
@@ -1001,4 +1018,12 @@
     <item>星期日</item>
     <item>星期一</item>
   </string-array>
+
+  <string name="fiscal_year_start">會計年度開始</string>
+  <string name="fiscal_year_start_summary">報表與統計使用的會計年度起始日: %s</string>
+
+  <string name="merge_payee_confirm">確認合併受款人</string>
+  <string name="merge_payee_message">這會保留受款人 %1$s, 將下列受款人的交易歸為此受款人, 並刪除下列受款人:</string>
+  <string name="merge_payee_message_continue">確認進行?</string>
+  <string name="merge_payee_success">受款人合併成功</string>
 </resources>

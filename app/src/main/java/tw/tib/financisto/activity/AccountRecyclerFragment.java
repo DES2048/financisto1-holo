@@ -28,7 +28,6 @@ import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.recyclerview.widget.ItemTouchHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,14 +37,13 @@ import greendroid.widget.QuickActionGrid;
 import greendroid.widget.QuickActionWidget;
 import tw.tib.financisto.R;
 import tw.tib.financisto.adapter.AccountRecyclerAdapter;
-import tw.tib.financisto.adapter.dragndrop.SimpleItemTouchHelperCallback;
 import tw.tib.financisto.blotter.BlotterFilter;
 import tw.tib.financisto.blotter.TotalCalculationTask;
 import tw.tib.financisto.bus.GreenRobotBus_;
 import tw.tib.financisto.bus.SwitchToMenuTabEvent;
 import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.dialog.AccountInfoDialog;
-import tw.tib.financisto.filter.Criteria;
+import tw.tib.financisto.filter.Criterion;
 import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.Total;
 import tw.tib.financisto.utils.IntegrityCheckAutobackup;
@@ -73,7 +71,9 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
     private TextView emptyText;
     private ProgressBar progressBar;
     private ImageButton bSearch;
+    private ImageButton bShowSortOrder;
     private String filter;
+    private boolean showSortOrder;
 
     private long selectedId = -1;
 
@@ -173,11 +173,24 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
                 });
             });
         }
+
+        bShowSortOrder = view.findViewById(R.id.bShowSortOrder);
+        if (bShowSortOrder != null) {
+            bShowSortOrder.setColorFilter(getResources().getColor(R.color.bottom_bar_tint));
+
+            bShowSortOrder.setOnClickListener(v -> {
+                showSortOrder = !showSortOrder;
+                bShowSortOrder.setColorFilter(showSortOrder ?
+                        getResources().getColor(R.color.holo_blue_dark) :
+                        getResources().getColor(R.color.bottom_bar_tint));
+                recreateCursor();
+            });
+        }
     }
 
     private void setupMenuButton() {
         final ImageButton bMenu = getView().findViewById(R.id.bMenu);
-        if (MyPreferences.isShowMenuButtonOnAccountsScreen(getContext())) {
+        if (MyPreferences.isShowMenuButtonOnAccountsScreen()) {
             bMenu.setOnClickListener(v -> {
                 PopupMenu popupMenu = new PopupMenu(getActivity(), bMenu);
                 MenuInflater inflater = getActivity().getMenuInflater();
@@ -220,7 +233,7 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
             accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.ic_action_lock_open, R.string.reopen_account));
         }
         accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.ic_action_trash, R.string.delete_account));
-        if (MyPreferences.isShowTransferCurrentBalance(getContext())) {
+        if (MyPreferences.isShowTransferCurrentBalance()) {
             accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.share_windows_32dp, R.string.transfer_current_balance));
         }
         accountActionGrid.setOnQuickActionClickListener(accountActionListener);
@@ -293,7 +306,7 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
         }
         TextView totalText = getView().findViewById(R.id.total);
         totalText.setOnClickListener((view) -> {
-            if (MyPreferences.isBlurBalances(getContext())) {
+            if (MyPreferences.isBlurBalances()) {
                 if (totalText.getPaint().getMaskFilter() != null) {
                     totalText.getPaint().setMaskFilter(null);
                     totalText.invalidate();
@@ -310,7 +323,7 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
             showTotals();
             return true;
         });
-        totalCalculationTask = new AccountTotalsCalculationTask(getContext(), db, totalText, filter);
+        totalCalculationTask = new AccountTotalsCalculationTask(getContext().getApplicationContext(), db, totalText, filter);
         totalCalculationTask.execute();
     }
 
@@ -339,11 +352,11 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
     }
 
     @Override
-    protected AccountRecyclerAdapter createAdapter(Cursor cursor) {
+    protected AccountRecyclerAdapter createAdapter(Context context, Cursor cursor) {
         long t1 = System.nanoTime();
-        var a = new AccountRecyclerAdapter(getContext(), cursor, clickedView -> {
+        var a = new AccountRecyclerAdapter(context, cursor, showSortOrder, clickedView -> {
             selectedId = (long) clickedView.getTag(R.id.account);
-            if (MyPreferences.isQuickMenuEnabledForAccount(getContext())) {
+            if (MyPreferences.isQuickMenuEnabledForAccount()) {
                 prepareAccountActionGrid();
                 accountActionGrid.show(clickedView);
             } else {
@@ -378,7 +391,7 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
         });
         Log.d(TAG, "createCursor start");
         long t1 = System.nanoTime();
-        if (MyPreferences.isHideClosedAccounts(getContext())) {
+        if (MyPreferences.isHideClosedAccounts()) {
             c = db.getAllActiveAccountsWithFilter(filter);
         } else {
             c = db.getAllAccountsWithFilter(filter);
@@ -455,7 +468,7 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
         Account account = db.getAccount(id);
         if (account != null) {
             Intent intent = new Intent(getContext(), BlotterActivity.class);
-            Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(id))
+            Criterion.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(id))
                     .toIntent(account.title, intent);
             intent.putExtra(BlotterFilterActivity.IS_ACCOUNT_FILTER, true);
             startActivityForResult(intent, VIEW_ACCOUNT_REQUEST);
@@ -525,6 +538,15 @@ public class AccountRecyclerFragment extends AbstractRecyclerViewFragment
             Log.d(TAG, "onResume NOT isUnlocked, hide list");
             getView().findViewById(android.R.id.list).setVisibility(View.INVISIBLE);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (totalCalculationTask != null) {
+            totalCalculationTask.stop();
+            totalCalculationTask.cancel(true);
+        }
+        super.onDestroy();
     }
 
     private void loadFilter() {

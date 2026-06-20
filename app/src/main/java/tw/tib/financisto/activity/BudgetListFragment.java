@@ -7,6 +7,7 @@ import static android.content.Context.MODE_PRIVATE;
 import static java.lang.String.format;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -34,8 +35,8 @@ import tw.tib.financisto.adapter.BudgetListAdapter;
 import tw.tib.financisto.blotter.BlotterFilter;
 import tw.tib.financisto.datetime.PeriodType;
 import tw.tib.financisto.db.MyEntityManager;
-import tw.tib.financisto.filter.Criteria;
-import tw.tib.financisto.filter.DateTimeCriteria;
+import tw.tib.financisto.filter.Criterion;
+import tw.tib.financisto.filter.DateTimeCriterion;
 import tw.tib.financisto.filter.WhereFilter;
 import tw.tib.financisto.db.BudgetsTotalCalculator;
 import tw.tib.financisto.model.Budget;
@@ -109,7 +110,7 @@ public class BudgetListFragment extends AbstractListFragment<ArrayList<Budget>> 
             filter = WhereFilter.fromSharedPreferences(getContext().getSharedPreferences(this.getClass().getName(), 0));
         }
         if (filter.isEmpty()) {
-            filter.put(new DateTimeCriteria(getContext(), PeriodType.THIS_MONTH));
+            filter.put(new DateTimeCriterion(PeriodType.THIS_MONTH));
         }
 
         handler = new Handler();
@@ -145,9 +146,9 @@ public class BudgetListFragment extends AbstractListFragment<ArrayList<Budget>> 
                 if (PeriodType.CUSTOM == p) {
                     long periodFrom = data.getLongExtra(DateFilterActivity.EXTRA_FILTER_PERIOD_FROM, 0);
                     long periodTo = data.getLongExtra(DateFilterActivity.EXTRA_FILTER_PERIOD_TO, 0);
-                    filter.put(new DateTimeCriteria(periodFrom, periodTo));
+                    filter.put(new DateTimeCriterion(periodFrom, periodTo));
                 } else {
-                    filter.put(new DateTimeCriteria(getContext(), p));
+                    filter.put(new DateTimeCriterion(p));
                 }
             }
             saveFilter();
@@ -156,9 +157,9 @@ public class BudgetListFragment extends AbstractListFragment<ArrayList<Budget>> 
     }
 
     @Override
-    protected ListAdapter createAdapter(ArrayList<Budget> budgets) {
+    protected ListAdapter createAdapter(Context context, ArrayList<Budget> budgets) {
         calculateTotals(budgets);
-        return new BudgetListAdapter(getContext(), budgets);
+        return new BudgetListAdapter(context, budgets);
     }
 
     @Override
@@ -168,7 +169,7 @@ public class BudgetListFragment extends AbstractListFragment<ArrayList<Budget>> 
         if (activity != null) {
             sortOrder = activity.getSharedPreferences(TAG, MODE_PRIVATE).getInt(PREF_SORT_ORDER, 0);
         }
-        filter.recalculatePeriod(getContext());
+        filter.recalculatePeriod();
         return db.getAllBudgets(filter, MyEntityManager.BudgetSortOrder.values()[sortOrder]);
     }
 
@@ -239,7 +240,7 @@ public class BudgetListFragment extends AbstractListFragment<ArrayList<Budget>> 
     protected void viewItem(View v, int position, long id) {
         Budget b = db.load(Budget.class, id);
         Intent intent = new Intent(getContext(), BudgetBlotterActivity.class);
-        Criteria.eq(BlotterFilter.BUDGET_ID, String.valueOf(id))
+        Criterion.eq(BlotterFilter.BUDGET_ID, String.valueOf(id))
                 .toIntent(b.title, intent);
         startActivityForResult(intent, VIEW_BUDGET_REQUEST);
     }

@@ -43,7 +43,7 @@ import tw.tib.financisto.blotter.TotalCalculationTask;
 import tw.tib.financisto.bus.SwitchToMenuTabEvent;
 import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.dialog.AccountInfoDialog;
-import tw.tib.financisto.filter.Criteria;
+import tw.tib.financisto.filter.Criterion;
 import tw.tib.financisto.bus.GreenRobotBus_;
 import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.Total;
@@ -177,7 +177,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
 
     private void setupMenuButton() {
         final ImageButton bMenu = getView().findViewById(R.id.bMenu);
-        if (MyPreferences.isShowMenuButtonOnAccountsScreen(getContext())) {
+        if (MyPreferences.isShowMenuButtonOnAccountsScreen()) {
             bMenu.setOnClickListener(v -> {
                 PopupMenu popupMenu = new PopupMenu(getActivity(), bMenu);
                 MenuInflater inflater = getActivity().getMenuInflater();
@@ -220,7 +220,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
             accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.ic_action_lock_open, R.string.reopen_account));
         }
         accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.ic_action_trash, R.string.delete_account));
-        if (MyPreferences.isShowTransferCurrentBalance(getContext())) {
+        if (MyPreferences.isShowTransferCurrentBalance()) {
             accountActionGrid.addQuickAction(new MyQuickAction(getContext(), R.drawable.share_windows_32dp, R.string.transfer_current_balance));
         }
         accountActionGrid.setOnQuickActionClickListener(accountActionListener);
@@ -293,7 +293,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
         }
         TextView totalText = getView().findViewById(R.id.total);
         totalText.setOnClickListener(view -> showTotals());
-        totalCalculationTask = new AccountTotalsCalculationTask(getContext(), db, totalText, filter);
+        totalCalculationTask = new AccountTotalsCalculationTask(getContext().getApplicationContext(), db, totalText, filter);
         totalCalculationTask.execute();
     }
 
@@ -322,9 +322,9 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
     }
 
     @Override
-    protected ListAdapter createAdapter(Cursor cursor) {
+    protected ListAdapter createAdapter(Context context, Cursor cursor) {
         long t1 = System.currentTimeMillis();
-        ListAdapter a = new AccountListAdapter(getContext(), cursor);
+        ListAdapter a = new AccountListAdapter(context, cursor);
         if (a.getCount() == 0) {
             emptyText.setVisibility(View.VISIBLE);
         }
@@ -344,7 +344,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
 
         Log.d(this.getClass().getSimpleName(), "createCursor start");
         long t1 = System.currentTimeMillis();
-        if (MyPreferences.isHideClosedAccounts(context)) {
+        if (MyPreferences.isHideClosedAccounts()) {
             c = db.getAllActiveAccountsWithFilter(filter);
         } else {
             c = db.getAllAccountsWithFilter(filter);
@@ -414,7 +414,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
 
     @Override
     protected void onItemClick(View v, int position, long id) {
-        if (MyPreferences.isQuickMenuEnabledForAccount(getContext())) {
+        if (MyPreferences.isQuickMenuEnabledForAccount()) {
             selectedId = id;
             prepareAccountActionGrid();
             accountActionGrid.show(v);
@@ -432,7 +432,7 @@ public class AccountListFragment extends AbstractListFragment<Cursor> {
         Account account = db.getAccount(id);
         if (account != null) {
             Intent intent = new Intent(getContext(), BlotterActivity.class);
-            Criteria.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(id))
+            Criterion.eq(BlotterFilter.FROM_ACCOUNT_ID, String.valueOf(id))
                     .toIntent(account.title, intent);
             intent.putExtra(BlotterFilterActivity.IS_ACCOUNT_FILTER, true);
             startActivityForResult(intent, VIEW_ACCOUNT_REQUEST);

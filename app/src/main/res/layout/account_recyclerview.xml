@@ -96,9 +96,14 @@
             android:src="@android:drawable/ic_menu_search" />
 
         <ImageButton
+            android:id="@+id/bShowSortOrder"
+            style="@style/BottomBarButton"
+            android:src="@drawable/format_list_numbered" />
+
+        <ImageButton
             android:id="@+id/bMenu"
             style="@style/BottomBarButton"
-            android:src="@drawable/actionbar_dot_menu" />
+            android:src="@drawable/more_vert" />
 
         <ImageButton
             android:id="@+id/bAddSeparator"

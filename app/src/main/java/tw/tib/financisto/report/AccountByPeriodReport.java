@@ -5,11 +5,14 @@ import java.util.Calendar;
 import java.util.List;
 
 import tw.tib.financisto.R;
-import tw.tib.financisto.db.MyEntityManager;
+import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.db.DatabaseHelper.TransactionColumns;
 import tw.tib.financisto.graph.Report2DChart;
 import tw.tib.financisto.model.Account;
 import tw.tib.financisto.model.Currency;
+import tw.tib.financisto.model.ReportDataByPeriod;
+import tw.tib.financisto.utils.MyPreferences;
+
 import android.content.Context;
 
 /**
@@ -18,8 +21,8 @@ import android.content.Context;
  */
 public class AccountByPeriodReport extends Report2DChart {
 
-	public AccountByPeriodReport(Context context, MyEntityManager em, Calendar startPeriod, int periodLength, Currency currency) {
-		super(context, em, startPeriod, periodLength, currency);
+	public AccountByPeriodReport(Context context, DatabaseAdapter em, Calendar startPeriod, int periodLength, Currency currency, MyPreferences.ReportAggregateUnit aggregateUnit) {
+		super(context, em, startPeriod, periodLength, currency, aggregateUnit);
 	}
 
 	/* (non-Javadoc)
@@ -66,4 +69,20 @@ public class AccountByPeriodReport extends Report2DChart {
 		return context.getString(R.string.report_no_account);
 	}
 
+	@Override
+	public Currency getCurrency() {
+		if (filterIds.size() > 0) {
+			return em.getAccount(filterIds.get(currentFilterOrder)).currency;
+		}
+		else {
+			return em.getHomeCurrency();
+		}
+	}
+
+	@Override
+	protected ReportDataByPeriod createDataBuilder() {
+		return new ReportDataByPeriod(context, startPeriod, periodLength, currency, columnFilter,
+				filterIds.get(currentFilterOrder), em, ReportDataByPeriod.ValueAggregation.SUM,
+				true, false, aggregateUnit);
+	}
 }

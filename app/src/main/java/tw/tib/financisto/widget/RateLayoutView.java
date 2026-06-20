@@ -10,8 +10,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.sql.Date;
-import java.util.concurrent.Executors;
 
+import tw.tib.financisto.Application;
 import tw.tib.financisto.R;
 import tw.tib.financisto.activity.AbstractActivity;
 import tw.tib.financisto.activity.ActivityLayout;
@@ -118,7 +118,7 @@ public class RateLayoutView implements RateNodeOwner {
         rateNode = new RateNode(this, activity, x, layout);
         AbstractActivity.setVisibility(rateNode.rateInfoNode, View.GONE);
 
-        if (MyPreferences.isSetFocusOnAmountField(activity)) {
+        if (MyPreferences.isSetFocusOnAmountField()) {
             amountInputFrom.requestFocusFromTouch();
             activity.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
         }
@@ -187,7 +187,7 @@ public class RateLayoutView implements RateNodeOwner {
     }
 
     private void getLatestRate() {
-        Executors.newSingleThreadExecutor().execute(() -> {
+        Application.getExecutor().execute(() -> {
             ExchangeRateProvider latestExchangeRates = new DatabaseAdapter(activity).getLatestRates();
             //ExchangeRateProvider latestExchangeRates = new LatestExchangeRatesFromTransactions(activity);
             ExchangeRate exchangeRate = latestExchangeRates.getRate(currencyFrom, currencyTo);

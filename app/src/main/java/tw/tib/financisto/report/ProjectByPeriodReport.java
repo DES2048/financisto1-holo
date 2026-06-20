@@ -6,7 +6,7 @@ import java.util.Calendar;
 import java.util.List;
 
 import tw.tib.financisto.R;
-import tw.tib.financisto.db.MyEntityManager;
+import tw.tib.financisto.db.DatabaseAdapter;
 import tw.tib.financisto.db.DatabaseHelper.TransactionColumns;
 import tw.tib.financisto.graph.Report2DChart;
 import tw.tib.financisto.model.Currency;
@@ -20,8 +20,8 @@ import android.content.Context;
  */
 public class ProjectByPeriodReport extends Report2DChart {
 	
-	public ProjectByPeriodReport(Context context, MyEntityManager em, Calendar startPeriod, int periodLength, Currency currency) {
-		super(context, em, startPeriod, periodLength, currency);
+	public ProjectByPeriodReport(Context context, DatabaseAdapter em, Calendar startPeriod, int periodLength, Currency currency, MyPreferences.ReportAggregateUnit aggregateUnit) {
+		super(context, em, startPeriod, periodLength, currency, aggregateUnit);
 	}
 
 	@Override
@@ -50,7 +50,7 @@ public class ProjectByPeriodReport extends Report2DChart {
 	@Override
 	protected void createFilter() {
 		columnFilter = TransactionColumns.project_id.name();
-		boolean includeNoProject = MyPreferences.includeNoFilterInReport(context);
+		boolean includeNoProject = MyPreferences.includeNoFilterInReport();
 		filterIds = new ArrayList<>();
 		filterTitles = new ArrayList<>();
 		currentFilterOrder = 0;

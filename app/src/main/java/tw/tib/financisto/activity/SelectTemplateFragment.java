@@ -15,7 +15,9 @@ import static android.app.Activity.RESULT_OK;
 
 import tw.tib.financisto.R;
 import tw.tib.financisto.adapter.TemplateListAdapter;
+import tw.tib.financisto.model.Transaction;
 
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
@@ -29,13 +31,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.os.BuildCompat;
 
 public class SelectTemplateFragment extends TemplatesListFragment {
-
-    public static final String TEMPLATE_ID = "template_id";
-    public static final String MULTIPLIER = "multiplier";
-    public static final String EDIT_AFTER_CREATION = "edit_after_creation";
 
     private TextView multiplierText;
     private int multiplier = 1;
@@ -51,7 +48,7 @@ public class SelectTemplateFragment extends TemplatesListFragment {
         internalOnCreateTemplates();
 
         getListView().setOnItemLongClickListener((parent, view1, position, id) -> {
-            returnResult(id, true);
+            createTransactionFromTemplate(id, true);
             return true;
         });
 
@@ -92,18 +89,18 @@ public class SelectTemplateFragment extends TemplatesListFragment {
     }
 
     @Override
-    protected ListAdapter createAdapter(Cursor cursor) {
-        return new TemplateListAdapter(getContext(), db, cursor);
+    protected ListAdapter createAdapter(Context context, Cursor cursor) {
+        return new TemplateListAdapter(context, db, cursor);
     }
 
     @Override
     protected void onItemClick(View v, int position, long id) {
-        returnResult(id, false);
+        createTransactionFromTemplate(id, false);
     }
 
     @Override
     protected void viewItem(View v, int position, long id) {
-        returnResult(id, false);
+        createTransactionFromTemplate(id, false);
     }
 
     @Override
@@ -116,12 +113,13 @@ public class SelectTemplateFragment extends TemplatesListFragment {
         // do nothing
     }
 
-    void returnResult(long id, boolean edit) {
-        Intent intent = new Intent();
-        intent.putExtra(TEMPLATE_ID, id);
-        intent.putExtra(MULTIPLIER, multiplier);
-        if (edit) intent.putExtra(EDIT_AFTER_CREATION, true);
-        getActivity().setResult(RESULT_OK, intent);
+    void createTransactionFromTemplate(long templateId, boolean edit) {
+        long id = duplicateTransaction(templateId, multiplier);
+        Transaction t = db.getTransaction(id);
+        if (t.fromAmount == 0 || edit) {
+            new BlotterOperations(getContext(), this, db, id).asNewFromTemplate().editTransaction();
+        }
+        getActivity().setResult(RESULT_OK);
         getActivity().finish();
     }
 
