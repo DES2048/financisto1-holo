@@ -149,14 +149,26 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
             this.blotterFragment = new WeakReference<>(blotterFragment);
         }
 
+        public static final int MSG_OK = 1;
+        public static final int MSG_FAIL = 2;
+
         @Override
-        public void handleMessage(Message message) {
-            super.handleMessage(message);
+        public void handleMessage(@NonNull Message message) {
+            //super.handleMessage(message);
             var frag = blotterFragment.get();
-            if(frag != null) {
-                frag.recreateCursor();
-                AccountWidget.updateWidgets(frag.getContext());
+            if (frag == null) {
+                return;
             }
+            switch (message.what) {
+
+                case MSG_OK:
+                    frag.recreateCursor();
+                    AccountWidget.updateWidgets(frag.getContext());
+                    break;
+                case MSG_FAIL:
+                    Toast.makeText(frag.getContext(), message.obj.toString(), Toast.LENGTH_LONG).show();
+            }
+
         }
     }
 
@@ -628,7 +640,10 @@ public class BlotterFragment extends AbstractListFragment<Cursor> implements Blo
                 break;
             case 2:
                 QRUtils.performScan(getContext(), () -> {
-                    qrCodeScanCompleteHandler.sendEmptyMessage(0);
+                    qrCodeScanCompleteHandler.sendEmptyMessage(QrCodeCompleteHandler.MSG_OK);
+                }, (e)-> {
+                    var msg = qrCodeScanCompleteHandler.obtainMessage(QrCodeCompleteHandler.MSG_FAIL, e.getMessage());
+                    qrCodeScanCompleteHandler.sendMessage(msg);
                 });
                 break;
             case 3:

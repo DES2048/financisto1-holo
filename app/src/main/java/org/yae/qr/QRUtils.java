@@ -34,7 +34,7 @@ public class QRUtils {
         void onSuccess();
     }
 
-    interface OnFailureCallback {
+    public interface OnFailureCallback {
         void onFailure(Exception e);
     }
     private static final SimpleDateFormat formatter=
@@ -58,13 +58,13 @@ public class QRUtils {
         });
     }
 
-    public static void performScan(Context context, SuccessScanCallback cb) {
+    public static void performScan(Context context, SuccessScanCallback cb, OnFailureCallback fb) {
 
         var scanner = GmsBarcodeScanning.getClient(context,scannerOpts);
 
         checkBarcodeModuleInstalled(context, scanner, result -> {
             if (result) {
-                innerScan(context, scanner, cb);
+                innerScan(context, scanner, cb, fb);
             } else {
                 // install module
                 var moduleRequest = ModuleInstallRequest.newBuilder().addApi(scanner).build();
@@ -74,7 +74,7 @@ public class QRUtils {
                     if(response.areModulesAlreadyInstalled()) {
                         Toast.makeText(context, "Modules installed", Toast.LENGTH_SHORT).show();
 
-                        innerScan(context, scanner, cb);
+                        innerScan(context, scanner, cb, fb);
                     }
                 });
             }
@@ -83,7 +83,8 @@ public class QRUtils {
 
     }
 
-    private static void innerScan(Context context, GmsBarcodeScanner scanner, SuccessScanCallback cb) {
+    private static void innerScan(Context context, GmsBarcodeScanner scanner, SuccessScanCallback cb, OnFailureCallback fb) {
+        //Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show();
         scanner.startScan().addOnSuccessListener(barcode -> {
             var qrraw = barcode.getRawValue();
             if (qrraw != null) {
@@ -97,23 +98,33 @@ public class QRUtils {
                         JSONObject receiptJson;
                         try {
                             receiptJson = new JSONObject(resp);
+                            // check code
+                            var code = receiptJson.getInt("code");
+                            if (code != 1) {
+                                fb.onFailure(new RuntimeException(receiptJson.getString("data")));
+                                return;
+                            }
                         } catch (JSONException e) {
-                            throw new RuntimeException(e);
+                            fb.onFailure(e);
+                            return;
                         }
-                        var transaction = QRUtils.createTransactionFromJson(receiptJson);
-                        var db = new DatabaseAdapter(context);
-                        db.open();
-                        db.insertOrUpdate(transaction);
-                        db.close();
-                        if(cb != null) {
-                            cb.onSuccess();
+                        try {
+                            var receiptData = receiptJson.getJSONObject("data").getJSONObject("json");
+                            var transaction = QRUtils.createTransactionFromJson(receiptData);
+                            var db = new DatabaseAdapter(context);
+                            db.open();
+                            db.insertOrUpdate(transaction);
+                            db.close();
+                            if(cb != null) {
+                                cb.onSuccess();
+                            }
+                        } catch (Exception e) {
+                            fb.onFailure(e);
                         }
-                    }, null);
+
+                    }, fb::onFailure);
             }
-        }).addOnFailureListener(e -> {
-            throw new RuntimeException(e);
-            //Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show();
-        });
+        }).addOnFailureListener(fb::onFailure);
     }
     public static Transaction createTransactionFromJson(JSONObject obj) {
         var t = new Transaction();
@@ -121,15 +132,14 @@ public class QRUtils {
         t.fromAccountId = 1;
         t.status = TransactionStatus.PN;
         try {
-            var json = obj.getJSONObject("data").getJSONObject("json");
 
             // date
-            t.dateTime = formatter.parse(json.getString("dateTime")).getTime();// '2020-09-24T18:37:00
+            t.dateTime = formatter.parse(obj.getString("dateTime")).getTime();// '2020-09-24T18:37:00
             // total amount
-            t.fromAmount = -json.getLong("totalSum");
+            t.fromAmount = -obj.getLong("totalSum");
 
             // items
-            var items = json.getJSONArray("items");
+            var items = obj.getJSONArray("items");
             if (items.length() == 1) {
                 var item = items.getJSONObject(0);
                 t.note = item.getString("name");
